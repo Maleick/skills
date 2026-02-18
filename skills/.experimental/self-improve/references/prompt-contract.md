@@ -10,16 +10,17 @@
   "smoke_command": "string",
   "regression_command": "string",
   "constraints": ["string"],
-  "memory_query": "string (optional)"
+  "memory_query": "string (optional)",
+  "iteration_cap": "number (optional, default 1 for this invocation)"
 }
 ```
 
 Rules:
 - `project`, `objective`, `repo_path`, `smoke_command`, `regression_command` are mandatory.
 - If any mandatory field is missing, ask and stop before planning changes.
-- Plan exactly one bounded change per iteration.
-- Execute exactly one change-set for that plan in the iteration.
-- Run exactly one verification pass (smoke + regression) after applying the change-set.
+- Plan exactly one bounded change-set per iteration.
+- If objective appears already satisfied, return explicit no-op with empty `changes`.
+- Never plan more than one verification pass per gate in a single iteration.
 
 ## Required Iteration Output Object
 
@@ -42,6 +43,10 @@ Rules:
     "title": "string",
     "body_markdown": "string with required auto-memory sections"
   },
+  "fallback_local_note": {
+    "path": ".self-improve/memory/<timestamp>-iteration.md",
+    "enabled_when_auto_memory_missing": true
+  },
   "next_step": "string"
 }
 ```
@@ -50,4 +55,5 @@ Rules:
 - `decision=accept` only when both gate statuses are `pass`.
 - `memory_note.body_markdown` must include sections:
   `Summary`, `Context`, `Decision`, `Rationale`, `Implementation`, `Verification`, `Follow-ups`, `Changelog`.
-- Do not report `accept` when no verification evidence is present for both gates.
+- `planned_change` must describe one change-set only.
+- `eval_plan` must contain one smoke and one regression command execution only (no retries inside the same iteration).

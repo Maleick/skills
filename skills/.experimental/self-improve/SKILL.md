@@ -5,49 +5,112 @@ description: Run a minimal self-improvement loop with one bounded change per ite
 
 # Self Improve
 
-Use this skill to run deterministic, test-gated improvement iterations with durable memory.
+Use this skill to run deterministic, test-gated improvement iterations.
+This skill is standalone first, with optional integrations for `auto-memory` and `ralph-wiggum-loop`.
 
 ## Setup
 
 ```bash
 export CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
+export SELF_IMPROVE_DIR="$CODEX_HOME/skills/self-improve"
 export AUTO_MEMORY_DIR="$CODEX_HOME/skills/auto-memory"
 ```
 
-## Workflow
+## Standalone Workflow
 
-1. Load prior memory before proposing changes:
-   `python3 "$AUTO_MEMORY_DIR/scripts/load_memory.py" --project "<project>" --query "<objective> decisions regressions known-good commands" --limit 8`
-
-2. Plan exactly one bounded change for this iteration using `references/prompt-contract.md`.
-
-3. Execute only that one planned change-set.
-
-4. Run evaluation from `references/eval-criteria.md`:
-   - smoke command (required)
-   - targeted regression command (required)
-
+1. Define objective + two required gates:
+   - `smoke_command` (required)
+   - `regression_command` (required)
+2. Produce exactly one bounded change plan using `references/prompt-contract.md`.
+3. Execute exactly one change-set.
+4. Run exactly one verification pass for each gate.
 5. Decision rule:
-   - Accept only if smoke and regression both pass.
-   - Reject if either fails.
+   - Accept only if both gates pass.
+   - Reject if either gate fails.
+6. Persist iteration outcome:
+   - Preferred: save with optional auto-memory integration (below).
+   - Fallback: write local note in `.self-improve/memory/` (contract below).
 
-6. Persist durable outcome via auto-memory:
-   `python3 "$AUTO_MEMORY_DIR/scripts/save_memory.py" --project "<project>" --title "<repo>: self-improve iteration <id>" --body "<memory note body>" --tags "self-improve,decision,eval"`
+## Local Fallback Memory Contract
 
-7. Compaction handoff (mandatory when compaction is likely or occurring):
-   - pre: `python3 "$AUTO_MEMORY_DIR/scripts/compaction_handoff.py" --project "<project>" --mode pre --objective "<objective>" --summary "<state and blockers>"`
-   - post: `python3 "$AUTO_MEMORY_DIR/scripts/compaction_handoff.py" --project "<project>" --mode post --objective "<objective>"`
-   - Use returned `reinjection_prompt` as first payload after compaction.
+When auto-memory is unavailable, create:
+- directory: `.self-improve/memory/`
+- file name: `<timestamp>-iteration.md` (for example `20260218-182500-iteration.md`)
+- required sections:
+  - `Summary`
+  - `Context`
+  - `Decision`
+  - `Rationale`
+  - `Implementation`
+  - `Verification`
+  - `Follow-ups`
+  - `Changelog`
 
-8. Never store secrets in markdown memory notes. Use:
-   `python3 "$AUTO_MEMORY_DIR/scripts/store_secret_env.py" --project "<project>" --var "<ENV_NAME>" --value "<secret>"`
+Include:
+- objective
+- planned change (one change-set only)
+- smoke/regression command + exit code evidence
+- accept/reject decision reason tied to gate outcomes
 
-## Iteration Contract
+## Optional Auto-memory Integration
 
-- One planned change-set per iteration.
-- One verification pass (smoke + regression) per iteration.
-- No accept decision without both gates passing.
-- Record decision evidence for every iteration.
+Load prior memory before proposing changes:
+
+```bash
+python3 "$AUTO_MEMORY_DIR/scripts/load_memory.py" \
+  --project "<project>" \
+  --query "<objective> decisions regressions known-good commands" \
+  --limit 8
+```
+
+Persist durable outcome:
+
+```bash
+python3 "$AUTO_MEMORY_DIR/scripts/save_memory.py" \
+  --project "<project>" \
+  --title "<repo>: self-improve iteration <id>" \
+  --body "<memory note body>" \
+  --tags "self-improve,decision,eval"
+```
+
+Compaction handoff (optional integration):
+
+```bash
+python3 "$AUTO_MEMORY_DIR/scripts/compaction_handoff.py" \
+  --project "<project>" \
+  --mode pre \
+  --objective "<objective>" \
+  --summary "<state and blockers>"
+```
+
+```bash
+python3 "$AUTO_MEMORY_DIR/scripts/compaction_handoff.py" \
+  --project "<project>" \
+  --mode post \
+  --objective "<objective>"
+```
+
+Use returned `reinjection_prompt` as first payload after compaction.
+
+## Optional Ralph Integration
+
+Use Ralph as the change executor while keeping this skill as the decision policy:
+- run Ralph with `max_iterations=1`
+- allow edits only in approved paths
+- apply self-improve gates after each Ralph run
+- accept/reject using the same two-gate rule
+
+## Secret Safety
+
+Never store secret values in markdown memory notes.
+When secret persistence is required:
+
+```bash
+python3 "$AUTO_MEMORY_DIR/scripts/store_secret_env.py" \
+  --project "<project>" \
+  --var "<ENV_NAME>" \
+  --value "<secret>"
+```
 
 ## References
 
