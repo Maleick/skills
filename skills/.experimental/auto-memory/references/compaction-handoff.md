@@ -26,6 +26,8 @@ Expected output fields:
 - `checkpoint_file`
 - `memory_payload`
 - `reinjection_prompt`
+- `reinjection_prompt_chars`
+- `reinjection_prompt_estimated_tokens`
 
 ## Post-Compaction
 
@@ -41,6 +43,8 @@ python3 "$AUTO_MEMORY_DIR/scripts/compaction_handoff.py" \
 Expected output fields:
 - `memory_payload`
 - `reinjection_prompt`
+- `reinjection_prompt_chars`
+- `reinjection_prompt_estimated_tokens`
 
 Use `reinjection_prompt` immediately as the first context payload in the resumed conversation.
 

@@ -73,6 +73,9 @@ export AUTO_MEMORY_DIR="$CODEX_HOME/skills/auto-memory"
 - Run post-compaction reinjection:
   - `python3 "$AUTO_MEMORY_DIR/scripts/compaction_handoff.py" --project "<project>" --mode post --objective "<objective>"`
 - Use returned `reinjection_prompt` as the first post-compaction context payload in the current session.
+- Output also includes:
+  - `reinjection_prompt_chars`
+  - `reinjection_prompt_estimated_tokens`
 
 ### `app_server_compaction_listener(project)`
 
@@ -85,6 +88,11 @@ export AUTO_MEMORY_DIR="$CODEX_HOME/skills/auto-memory"
   - run `compaction_handoff.py --mode pre` or `--mode post` on detected events
 - Auto-inject:
   - when `--inject-turn-start` is set and a `threadId` is available, emit a ready-to-send `turn/start` JSON-RPC request carrying `reinjection_prompt`
+- Reinjection guardrails:
+  - `--reinjection-max-chars` sets max prompt size by character count (set `0` to disable)
+  - `--reinjection-max-estimated-tokens` sets max prompt size by estimated token count (set `0` to disable)
+  - `--oversize-action skip|truncate|allow` controls behavior when prompt exceeds limits (default `skip`)
+  - compaction JSONL logs include `reinjection_status`, size metrics, and oversize reasons
 - Optional auto-save mode:
   - set `--auto-save-events "turn/complete,turn/completed"` to persist structured event summaries through `save_memory.py`
   - auto-save can infer project from event payload with `--auto-save-project-field`, and can include selected payload fields in summaries with `--auto-save-summary-fields`
@@ -106,6 +114,7 @@ export AUTO_MEMORY_DIR="$CODEX_HOME/skills/auto-memory"
   - `AUTO_MEMORY_PROJECT`, `AUTO_MEMORY_OBJECTIVE`, `AUTO_MEMORY_LIMIT`
   - `AUTO_MEMORY_QUERY`, `AUTO_MEMORY_PROMPT_OUT`, `AUTO_MEMORY_LOG`
   - `AUTO_MEMORY_OUTPUT_FRAMING`, `AUTO_MEMORY_REQUEST_ID_PREFIX`, `AUTO_MEMORY_INPUT_FILE`, `AUTO_MEMORY_QUIET`
+  - `AUTO_MEMORY_REINJECTION_MAX_CHARS`, `AUTO_MEMORY_REINJECTION_MAX_ESTIMATED_TOKENS`, `AUTO_MEMORY_OVERSIZE_ACTION`
   - `AUTO_MEMORY_MODE=compaction|autosave|both`
   - `AUTO_MEMORY_AUTO_SAVE_EVENTS`, `AUTO_MEMORY_AUTO_SAVE_TITLE_PREFIX`, `AUTO_MEMORY_AUTO_SAVE_TAGS`
   - `AUTO_MEMORY_AUTO_SAVE_PROJECT_FIELD`, `AUTO_MEMORY_AUTO_SAVE_SUMMARY_FIELDS`, `AUTO_MEMORY_INJECT_TURN_START`

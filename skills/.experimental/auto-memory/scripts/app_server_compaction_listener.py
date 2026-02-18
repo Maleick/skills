@@ -19,8 +19,12 @@ DEFAULT_AUTO_SAVE_TITLE_PREFIX = "Auto memory"
 DEFAULT_AUTO_SAVE_TAGS = "auto-memory,auto-save"
 DEFAULT_AUTO_SAVE_PROJECT_FIELD = "project"
 DEFAULT_AUTO_SAVE_SUMMARY_FIELDS = "summary,objective,next_step,result,status"
+DEFAULT_REINJECTION_MAX_CHARS = 12000
+DEFAULT_REINJECTION_MAX_ESTIMATED_TOKENS = 3000
+DEFAULT_OVERSIZE_ACTION = "skip"
 MAX_PAYLOAD_PREVIEW_CHARS = 1400
 MAX_FIELD_VALUE_CHARS = 260
+EST_CHARS_PER_TOKEN = 4
 
 
 def parse_args() -> argparse.Namespace:
@@ -61,6 +65,33 @@ def parse_args() -> argparse.Namespace:
         "--request-id-prefix",
         default="auto-memory",
         help="Prefix for emitted turn/start request IDs.",
+    )
+    parser.add_argument(
+        "--reinjection-max-chars",
+        type=int,
+        default=DEFAULT_REINJECTION_MAX_CHARS,
+        help=(
+            "Maximum reinjection prompt length in characters before oversize handling applies. "
+            "Set to 0 to disable character-based limit."
+        ),
+    )
+    parser.add_argument(
+        "--reinjection-max-estimated-tokens",
+        type=int,
+        default=DEFAULT_REINJECTION_MAX_ESTIMATED_TOKENS,
+        help=(
+            "Maximum estimated reinjection prompt token count before oversize handling applies. "
+            "Set to 0 to disable token-based limit."
+        ),
+    )
+    parser.add_argument(
+        "--oversize-action",
+        choices=("skip", "truncate", "allow"),
+        default=DEFAULT_OVERSIZE_ACTION,
+        help=(
+            "Behavior when reinjection prompt exceeds configured limits: "
+            "'skip' (default), 'truncate', or 'allow'."
+        ),
     )
     parser.add_argument(
         "--disable-compaction",
@@ -426,6 +457,47 @@ def _record_event(log_path: str, payload: dict[str, Any]) -> None:
     _write_jsonl(log_path, payload_with_ts)
 
 
+def _estimate_token_count(text: str) -> int:
+    if not text:
+        return 0
+    return max(1, (len(text) + EST_CHARS_PER_TOKEN - 1) // EST_CHARS_PER_TOKEN)
+
+
+def _is_over_limit(value: int, limit: int) -> bool:
+    return limit > 0 and value > limit
+
+
+def _oversize_reasons(
+    *,
+    prompt_chars: int,
+    prompt_tokens_estimated: int,
+    max_chars: int,
+    max_tokens: int,
+) -> list[str]:
+    reasons: list[str] = []
+    if _is_over_limit(prompt_chars, max_chars):
+        reasons.append(f"chars>{max_chars}")
+    if _is_over_limit(prompt_tokens_estimated, max_tokens):
+        reasons.append(f"tokens>{max_tokens}")
+    return reasons
+
+
+def _truncate_prompt_to_budget(prompt: str, max_chars: int, max_tokens: int) -> str:
+    budget_chars = max_chars if max_chars > 0 else len(prompt)
+    if max_tokens > 0:
+        budget_chars = min(budget_chars, max_tokens * EST_CHARS_PER_TOKEN)
+    budget_chars = max(0, budget_chars)
+    if budget_chars == 0:
+        return ""
+    if len(prompt) <= budget_chars:
+        return prompt
+    # Keep a visible truncation marker while remaining inside budget.
+    marker = "\n[auto-memory reinjection truncated]"
+    if budget_chars <= len(marker):
+        return prompt[:budget_chars]
+    return prompt[: budget_chars - len(marker)].rstrip() + marker
+
+
 def main() -> int:
     args = parse_args()
     try:
@@ -496,6 +568,13 @@ def main() -> int:
                         _log(f"detected {event_kind}, running {mode} handoff", quiet=args.quiet)
                         result: dict[str, Any] | None = None
                         err: str | None = None
+                        reinjection_status = "not_applicable"
+                        oversize_reason: list[str] = []
+                        prompt_chars = 0
+                        prompt_tokens_estimated = 0
+                        prompt_sent_chars = 0
+                        prompt_sent_tokens_estimated = 0
+                        prompt_sent = False
                         try:
                             result = _run_handoff(
                                 mode=mode,
@@ -505,20 +584,76 @@ def main() -> int:
                                 limit=max(1, args.limit),
                             )
                             prompt = (result.get("reinjection_prompt") or "").strip()
+                            prompt_chars = int(result.get("reinjection_prompt_chars") or len(prompt))
+                            prompt_tokens_estimated = int(
+                                result.get("reinjection_prompt_estimated_tokens") or _estimate_token_count(prompt)
+                            )
                             if prompt and args.prompt_out:
                                 Path(args.prompt_out).write_text(prompt + "\n", encoding="utf-8")
                             if mode == "post" and prompt and args.inject_turn_start and thread_id:
-                                inject_counter += 1
-                                _emit_turn_start(
-                                    output_framing=args.output_framing,
-                                    request_id_prefix=args.request_id_prefix,
-                                    thread_id=thread_id,
-                                    prompt=prompt,
-                                    counter=inject_counter,
+                                oversize_reason = _oversize_reasons(
+                                    prompt_chars=prompt_chars,
+                                    prompt_tokens_estimated=prompt_tokens_estimated,
+                                    max_chars=max(0, args.reinjection_max_chars),
+                                    max_tokens=max(0, args.reinjection_max_estimated_tokens),
                                 )
+                                send_prompt = prompt
+                                if oversize_reason:
+                                    if args.oversize_action == "skip":
+                                        reinjection_status = "skipped_oversize"
+                                        _log(
+                                            "reinjection skipped due to oversize "
+                                            + f"({','.join(oversize_reason)})",
+                                            quiet=False,
+                                        )
+                                    elif args.oversize_action == "truncate":
+                                        send_prompt = _truncate_prompt_to_budget(
+                                            prompt,
+                                            max(0, args.reinjection_max_chars),
+                                            max(0, args.reinjection_max_estimated_tokens),
+                                        )
+                                        if not send_prompt.strip():
+                                            reinjection_status = "skipped_truncate_budget"
+                                            _log(
+                                                "reinjection skipped: truncate budget resolved to empty prompt",
+                                                quiet=False,
+                                            )
+                                        else:
+                                            reinjection_status = "truncated_then_emitted"
+                                    else:
+                                        reinjection_status = "emitted_oversize_allowed"
+                                else:
+                                    reinjection_status = "emitted"
+
+                                if reinjection_status in (
+                                    "emitted",
+                                    "truncated_then_emitted",
+                                    "emitted_oversize_allowed",
+                                ):
+                                    prompt_sent_chars = len(send_prompt)
+                                    prompt_sent_tokens_estimated = _estimate_token_count(send_prompt)
+                                    inject_counter += 1
+                                    _emit_turn_start(
+                                        output_framing=args.output_framing,
+                                        request_id_prefix=args.request_id_prefix,
+                                        thread_id=thread_id,
+                                        prompt=send_prompt,
+                                        counter=inject_counter,
+                                    )
+                                    prompt_sent = True
+                            elif mode == "post" and prompt and args.inject_turn_start and not thread_id:
+                                reinjection_status = "skipped_missing_thread_id"
+                            elif mode == "post" and prompt and not args.inject_turn_start:
+                                reinjection_status = "generated_not_injected"
                         except Exception as exc:
                             err = str(exc)
                             _log(f"handoff error: {err}", quiet=False)
+
+                        status = "ok"
+                        if err is not None:
+                            status = "error"
+                        elif reinjection_status in ("skipped_oversize", "skipped_truncate_budget"):
+                            status = "skipped_oversize"
 
                         _record_event(
                             args.jsonl_log,
@@ -527,9 +662,19 @@ def main() -> int:
                                 "event": event_kind,
                                 "mode": mode,
                                 "thread_id": thread_id,
-                                "status": "ok" if err is None else "error",
+                                "status": status,
                                 "project": project,
                                 "checkpoint_file": None if not result else result.get("checkpoint_file"),
+                                "reinjection_status": reinjection_status,
+                                "oversize_action": args.oversize_action,
+                                "oversize_reason": oversize_reason,
+                                "prompt_chars": prompt_chars,
+                                "prompt_tokens_estimated": prompt_tokens_estimated,
+                                "prompt_sent": prompt_sent,
+                                "prompt_sent_chars": prompt_sent_chars,
+                                "prompt_sent_tokens_estimated": prompt_sent_tokens_estimated,
+                                "reinjection_max_chars": max(0, args.reinjection_max_chars),
+                                "reinjection_max_estimated_tokens": max(0, args.reinjection_max_estimated_tokens),
                                 "error": err,
                             },
                         )

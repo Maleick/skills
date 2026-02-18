@@ -24,6 +24,7 @@ from common import (
 )
 
 DEFAULT_POST_QUERY = "latest compaction checkpoint decisions blockers next step"
+EST_CHARS_PER_TOKEN = 4
 
 
 def parse_args() -> argparse.Namespace:
@@ -44,6 +45,12 @@ def parse_args() -> argparse.Namespace:
 
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def estimate_token_count(text: str) -> int:
+    if not text:
+        return 0
+    return max(1, (len(text) + EST_CHARS_PER_TOKEN - 1) // EST_CHARS_PER_TOKEN)
 
 
 def load_summary(args: argparse.Namespace) -> str:
@@ -168,6 +175,8 @@ def pre_mode(args: argparse.Namespace, project: str) -> dict[str, Any]:
         "checkpoint_file": str(checkpoint_path),
         "memory_payload": memory_payload,
         "reinjection_prompt": reinjection_prompt,
+        "reinjection_prompt_chars": len(reinjection_prompt),
+        "reinjection_prompt_estimated_tokens": estimate_token_count(reinjection_prompt),
     }
 
 
@@ -196,6 +205,8 @@ def post_mode(args: argparse.Namespace, project: str) -> dict[str, Any]:
         "checkpoint_file": checkpoint_file,
         "memory_payload": memory_payload,
         "reinjection_prompt": reinjection_prompt,
+        "reinjection_prompt_chars": len(reinjection_prompt),
+        "reinjection_prompt_estimated_tokens": estimate_token_count(reinjection_prompt),
     }
 
 

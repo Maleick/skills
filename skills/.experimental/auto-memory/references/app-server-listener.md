@@ -26,6 +26,7 @@ Defaults:
 - reinjection output: `$CODEX_HOME/tmp/auto-memory-reinjection.txt`
 - action log: `$CODEX_HOME/tmp/auto-memory-listener.log`
 - reinjection mode: emits `turn/start` JSON-RPC request payloads (compaction mode)
+- reinjection guardrails: `AUTO_MEMORY_REINJECTION_MAX_CHARS=12000`, `AUTO_MEMORY_REINJECTION_MAX_ESTIMATED_TOKENS=3000`, `AUTO_MEMORY_OVERSIZE_ACTION=skip`
 
 Common overrides:
 
@@ -34,6 +35,20 @@ AUTO_MEMORY_PROJECT="workspace" \
 AUTO_MEMORY_OBJECTIVE="Continue task execution after compaction." \
 AUTO_MEMORY_QUERY="blockers next step" \
 AUTO_MEMORY_OUTPUT_FRAMING="jsonl" \
+AUTO_MEMORY_REINJECTION_MAX_CHARS="12000" \
+AUTO_MEMORY_REINJECTION_MAX_ESTIMATED_TOKENS="3000" \
+AUTO_MEMORY_OVERSIZE_ACTION="skip" \
+"$AUTO_MEMORY_DIR/scripts/start_auto_memory_listener.sh"
+```
+
+Debug-friendly safe mode (no auto injection; keep logs/prompts for inspection):
+
+```bash
+AUTO_MEMORY_MODE="compaction" \
+AUTO_MEMORY_QUIET="0" \
+AUTO_MEMORY_INJECT_TURN_START="0" \
+AUTO_MEMORY_PROMPT_OUT="$CODEX_HOME/tmp/auto-memory-reinjection.txt" \
+AUTO_MEMORY_LOG="$CODEX_HOME/tmp/auto-memory-listener.log" \
 "$AUTO_MEMORY_DIR/scripts/start_auto_memory_listener.sh"
 ```
 
@@ -88,6 +103,9 @@ python3 "$AUTO_MEMORY_DIR/scripts/app_server_compaction_listener.py" \
   --objective "<objective>" \
   --inject-turn-start \
   --output-framing jsonl \
+  --reinjection-max-chars 12000 \
+  --reinjection-max-estimated-tokens 3000 \
+  --oversize-action skip \
   --prompt-out "/tmp/auto-memory-reinjection.txt" \
   --jsonl-log "/tmp/auto-memory-listener.log"
 ```
@@ -121,3 +139,14 @@ python3 "$AUTO_MEMORY_DIR/scripts/app_server_compaction_listener.py" \
 - `--prompt-out` stores the latest reinjection prompt so an external process can reuse it.
 - `start_auto_memory_listener.sh` accepts passthrough listener flags after env defaults.
 - Auto-save mode deduplicates repeated event IDs and logs action outcomes (`ok`, `error`, `skipped_secret`) in JSONL.
+- Compaction log rows include reinjection metrics and control fields:
+  - `reinjection_status`
+  - `prompt_chars`, `prompt_tokens_estimated`
+  - `prompt_sent_chars`, `prompt_sent_tokens_estimated`
+  - `oversize_action`, `oversize_reason`
+
+## Oversize Behavior
+
+- `--oversize-action skip` (default): do not emit `turn/start` when reinjection exceeds configured budget; log `status=skipped_oversize`.
+- `--oversize-action truncate`: truncate reinjection prompt to budget and emit when non-empty.
+- `--oversize-action allow`: emit prompt even if over budget (for debugging only).
