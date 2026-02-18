@@ -1,6 +1,8 @@
-# App-Server Compaction Listener
+# App-Server Listener
 
-Use `scripts/app_server_compaction_listener.py` to watch compaction signals and trigger memory handoff automatically.
+Use `scripts/app_server_compaction_listener.py` to watch app-server signals for:
+- compaction handoff (`pre` + `post`)
+- optional auto-save from turn/session completion events
 
 ## Setup
 
@@ -18,11 +20,12 @@ Start listener with defaults:
 ```
 
 Defaults:
+- `AUTO_MEMORY_MODE=compaction`
 - project: sanitized current directory name (fallback `workspace`)
 - objective: carry-forward compaction recovery objective
 - reinjection output: `$CODEX_HOME/tmp/auto-memory-reinjection.txt`
 - action log: `$CODEX_HOME/tmp/auto-memory-listener.log`
-- reinjection mode: emits `turn/start` JSON-RPC request payloads
+- reinjection mode: emits `turn/start` JSON-RPC request payloads (compaction mode)
 
 Common overrides:
 
@@ -34,17 +37,46 @@ AUTO_MEMORY_OUTPUT_FRAMING="jsonl" \
 "$AUTO_MEMORY_DIR/scripts/start_auto_memory_listener.sh"
 ```
 
+## Runtime modes
+
+Compaction only (default):
+
+```bash
+AUTO_MEMORY_MODE="compaction" \
+"$AUTO_MEMORY_DIR/scripts/start_auto_memory_listener.sh"
+```
+
+Auto-save only:
+
+```bash
+AUTO_MEMORY_MODE="autosave" \
+AUTO_MEMORY_AUTO_SAVE_EVENTS="turn/complete,turn/completed" \
+AUTO_MEMORY_AUTO_SAVE_SUMMARY_FIELDS="summary,objective,next_step,result,status" \
+"$AUTO_MEMORY_DIR/scripts/start_auto_memory_listener.sh"
+```
+
+Both compaction and auto-save:
+
+```bash
+AUTO_MEMORY_MODE="both" \
+AUTO_MEMORY_AUTO_SAVE_EVENTS="turn/complete,turn/completed" \
+"$AUTO_MEMORY_DIR/scripts/start_auto_memory_listener.sh"
+```
+
 ## What It Watches
 
 - Request method: `thread/compact/start`
 - Notification method: `thread/compacted`
 - Event payloads containing `type: "context_compacted"`
+- Configured completion methods from `--auto-save-events` (or `AUTO_MEMORY_AUTO_SAVE_EVENTS`)
 
 ## What It Does
 
 1. Run `compaction_handoff.py --mode pre` when `thread/compact/start` appears.
 2. Run `compaction_handoff.py --mode post` when compaction completes.
 3. Optionally emit a `turn/start` JSON-RPC request with `reinjection_prompt`.
+4. Optionally persist structured event memory notes through `save_memory.py` for configured completion events.
+5. Skip auto-save when secret-like indicators are detected in generated note content.
 
 ## Basic Usage
 
@@ -69,9 +101,23 @@ python3 "$AUTO_MEMORY_DIR/scripts/app_server_compaction_listener.py" \
   --inject-turn-start
 ```
 
+Enable direct auto-save with explicit event filters:
+
+```bash
+python3 "$AUTO_MEMORY_DIR/scripts/app_server_compaction_listener.py" \
+  --project "<project>" \
+  --disable-compaction \
+  --auto-save-events "turn/complete,turn/completed" \
+  --auto-save-title-prefix "Auto memory" \
+  --auto-save-tags "auto-memory,auto-save" \
+  --auto-save-project-field "project" \
+  --auto-save-summary-fields "summary,objective,next_step,result,status"
+```
+
 ## Output Notes
 
 - With `--inject-turn-start`, emitted payloads are valid JSON-RPC requests for method `turn/start`.
 - Choose `--output-framing lsp` to emit `Content-Length` framed requests for LSP-style transports.
 - `--prompt-out` stores the latest reinjection prompt so an external process can reuse it.
 - `start_auto_memory_listener.sh` accepts passthrough listener flags after env defaults.
+- Auto-save mode deduplicates repeated event IDs and logs action outcomes (`ok`, `error`, `skipped_secret`) in JSONL.

@@ -15,11 +15,26 @@ OBJECTIVE="${AUTO_MEMORY_OBJECTIVE:-Continue the active task using preserved con
 LIMIT="${AUTO_MEMORY_LIMIT:-8}"
 OUTPUT_FRAMING="${AUTO_MEMORY_OUTPUT_FRAMING:-jsonl}"
 REQUEST_ID_PREFIX="${AUTO_MEMORY_REQUEST_ID_PREFIX:-auto-memory}"
+MODE="${AUTO_MEMORY_MODE:-compaction}"
 PROMPT_OUT="${AUTO_MEMORY_PROMPT_OUT:-$CODEX_HOME/tmp/auto-memory-reinjection.txt}"
 JSONL_LOG="${AUTO_MEMORY_LOG:-$CODEX_HOME/tmp/auto-memory-listener.log}"
 QUERY="${AUTO_MEMORY_QUERY:-}"
 INPUT_FILE="${AUTO_MEMORY_INPUT_FILE:-}"
 QUIET="${AUTO_MEMORY_QUIET:-1}"
+AUTO_SAVE_EVENTS="${AUTO_MEMORY_AUTO_SAVE_EVENTS:-turn/complete,turn/completed}"
+AUTO_SAVE_TITLE_PREFIX="${AUTO_MEMORY_AUTO_SAVE_TITLE_PREFIX:-Auto memory}"
+AUTO_SAVE_TAGS="${AUTO_MEMORY_AUTO_SAVE_TAGS:-auto-memory,auto-save}"
+AUTO_SAVE_PROJECT_FIELD="${AUTO_MEMORY_AUTO_SAVE_PROJECT_FIELD:-project}"
+AUTO_SAVE_SUMMARY_FIELDS="${AUTO_MEMORY_AUTO_SAVE_SUMMARY_FIELDS:-summary,objective,next_step,result,status}"
+INJECT_TURN_START="${AUTO_MEMORY_INJECT_TURN_START:-}"
+
+if [[ -z "$INJECT_TURN_START" ]]; then
+  if [[ "$MODE" == "autosave" ]]; then
+    INJECT_TURN_START="0"
+  else
+    INJECT_TURN_START="1"
+  fi
+fi
 
 mkdir -p "$(dirname "$PROMPT_OUT")" "$(dirname "$JSONL_LOG")"
 
@@ -28,12 +43,44 @@ CMD=(
   --project "$PROJECT"
   --objective "$OBJECTIVE"
   --limit "$LIMIT"
-  --inject-turn-start
   --output-framing "$OUTPUT_FRAMING"
   --request-id-prefix "$REQUEST_ID_PREFIX"
   --prompt-out "$PROMPT_OUT"
   --jsonl-log "$JSONL_LOG"
 )
+
+case "$MODE" in
+  compaction)
+    ;;
+  autosave)
+    CMD+=(--disable-compaction)
+    if [[ -n "$AUTO_SAVE_EVENTS" ]]; then
+      CMD+=(--auto-save-events "$AUTO_SAVE_EVENTS")
+    fi
+    ;;
+  both)
+    if [[ -n "$AUTO_SAVE_EVENTS" ]]; then
+      CMD+=(--auto-save-events "$AUTO_SAVE_EVENTS")
+    fi
+    ;;
+  *)
+    echo "Unsupported AUTO_MEMORY_MODE: $MODE (expected compaction|autosave|both)" >&2
+    exit 2
+    ;;
+esac
+
+if [[ "$MODE" == "autosave" || "$MODE" == "both" ]]; then
+  CMD+=(
+    --auto-save-title-prefix "$AUTO_SAVE_TITLE_PREFIX"
+    --auto-save-tags "$AUTO_SAVE_TAGS"
+    --auto-save-project-field "$AUTO_SAVE_PROJECT_FIELD"
+    --auto-save-summary-fields "$AUTO_SAVE_SUMMARY_FIELDS"
+  )
+fi
+
+if [[ "$INJECT_TURN_START" == "1" ]]; then
+  CMD+=(--inject-turn-start)
+fi
 
 if [[ -n "$QUERY" ]]; then
   CMD+=(--query "$QUERY")
@@ -52,6 +99,7 @@ CMD+=("$@")
 echo "Starting auto-memory listener" >&2
 echo "project=$PROJECT" >&2
 echo "objective=$OBJECTIVE" >&2
+echo "mode=$MODE" >&2
 echo "prompt_out=$PROMPT_OUT" >&2
 echo "log=$JSONL_LOG" >&2
 

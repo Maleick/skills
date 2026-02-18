@@ -85,6 +85,10 @@ export AUTO_MEMORY_DIR="$CODEX_HOME/skills/auto-memory"
   - run `compaction_handoff.py --mode pre` or `--mode post` on detected events
 - Auto-inject:
   - when `--inject-turn-start` is set and a `threadId` is available, emit a ready-to-send `turn/start` JSON-RPC request carrying `reinjection_prompt`
+- Optional auto-save mode:
+  - set `--auto-save-events "turn/complete,turn/completed"` to persist structured event summaries through `save_memory.py`
+  - auto-save can infer project from event payload with `--auto-save-project-field`, and can include selected payload fields in summaries with `--auto-save-summary-fields`
+  - secret-like payloads are skipped automatically and logged as `skipped_secret`
 - Persist outputs:
   - use `--prompt-out` for latest reinjection prompt text
   - use `--jsonl-log` for audit/debug records of detected events and handoff actions
@@ -94,13 +98,17 @@ export AUTO_MEMORY_DIR="$CODEX_HOME/skills/auto-memory"
 - Start with defaults:
   - `"$AUTO_MEMORY_DIR/scripts/start_auto_memory_listener.sh"`
 - Default behavior:
+  - `AUTO_MEMORY_MODE=compaction` by default
   - project defaults to sanitized current directory name (fallback `workspace`)
   - objective defaults to carry-forward compaction recovery text
-  - emits `turn/start` reinjection requests automatically
+  - emits `turn/start` reinjection requests automatically in compaction and both modes
 - Override defaults with env vars:
   - `AUTO_MEMORY_PROJECT`, `AUTO_MEMORY_OBJECTIVE`, `AUTO_MEMORY_LIMIT`
   - `AUTO_MEMORY_QUERY`, `AUTO_MEMORY_PROMPT_OUT`, `AUTO_MEMORY_LOG`
   - `AUTO_MEMORY_OUTPUT_FRAMING`, `AUTO_MEMORY_REQUEST_ID_PREFIX`, `AUTO_MEMORY_INPUT_FILE`, `AUTO_MEMORY_QUIET`
+  - `AUTO_MEMORY_MODE=compaction|autosave|both`
+  - `AUTO_MEMORY_AUTO_SAVE_EVENTS`, `AUTO_MEMORY_AUTO_SAVE_TITLE_PREFIX`, `AUTO_MEMORY_AUTO_SAVE_TAGS`
+  - `AUTO_MEMORY_AUTO_SAVE_PROJECT_FIELD`, `AUTO_MEMORY_AUTO_SAVE_SUMMARY_FIELDS`, `AUTO_MEMORY_INJECT_TURN_START`
 
 ## Project Inference Priority
 
@@ -144,6 +152,17 @@ Use automatic compaction handoff through this skill:
 
 For custom app-server integrations, run `app_server_compaction_listener.py` continuously to watch compaction events and emit auto reinjection requests.
 Codex currently has protocol-level compaction events but no direct user-configured pre/post hook in `$CODEX_HOME/config.toml`.
+
+## Standalone and Integration
+
+- Standalone first:
+  - this skill works by itself using `save_memory.py`, `load_memory.py`, `compaction_handoff.py`, and listener scripts.
+- Optional integration with `self-improve`:
+  - use memory notes to persist iteration outcomes and acceptance decisions.
+- Optional integration with `ralph-wiggum-loop`:
+  - use auto-save and compaction handoff to preserve loop progress between sessions.
+- Integration is additive, not required:
+  - core memory save/load and compaction workflows must continue to work when other skills are absent.
 
 ## Secret Safety Rules
 

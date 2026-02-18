@@ -1,6 +1,7 @@
 # Compaction Handoff
 
 Use this flow to preserve context through compaction.
+This flow works standalone and can also be consumed by `self-improve` or `ralph-wiggum-loop`.
 
 ## Setup
 
@@ -42,3 +43,12 @@ Expected output fields:
 - `reinjection_prompt`
 
 Use `reinjection_prompt` immediately as the first context payload in the resumed conversation.
+
+## Listener Integration
+
+- Compaction mode only:
+  - `AUTO_MEMORY_MODE=compaction "$AUTO_MEMORY_DIR/scripts/start_auto_memory_listener.sh"`
+- Combined compaction + auto-save mode:
+  - `AUTO_MEMORY_MODE=both "$AUTO_MEMORY_DIR/scripts/start_auto_memory_listener.sh"`
+
+Compaction handoff behavior is unchanged by auto-save mode.

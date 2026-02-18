@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Listen for app-server compaction events and trigger memory handoff."""
+"""Listen for app-server events and trigger compaction handoff or optional auto-save."""
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import subprocess
 import sys
@@ -11,12 +12,20 @@ import time
 from pathlib import Path
 from typing import Any, BinaryIO, Iterator
 
-from common import MemoryValidationError, ensure_project_name
+from common import MemoryValidationError, detect_secret_indicators, ensure_project_name, now_iso
+
+
+DEFAULT_AUTO_SAVE_TITLE_PREFIX = "Auto memory"
+DEFAULT_AUTO_SAVE_TAGS = "auto-memory,auto-save"
+DEFAULT_AUTO_SAVE_PROJECT_FIELD = "project"
+DEFAULT_AUTO_SAVE_SUMMARY_FIELDS = "summary,objective,next_step,result,status"
+MAX_PAYLOAD_PREVIEW_CHARS = 1400
+MAX_FIELD_VALUE_CHARS = 260
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Watch app-server event stream for compaction and run auto memory handoff."
+        description="Watch app-server event stream for compaction handoff and optional auto-save."
     )
     parser.add_argument("--project", required=True, help="Project scope for memory operations.")
     parser.add_argument("--objective", default="", help="Objective carried into reinjection prompts.")
@@ -54,11 +63,51 @@ def parse_args() -> argparse.Namespace:
         help="Prefix for emitted turn/start request IDs.",
     )
     parser.add_argument(
+        "--disable-compaction",
+        action="store_true",
+        help="Disable compaction pre/post handoff behavior.",
+    )
+    parser.add_argument(
+        "--auto-save-events",
+        default="",
+        help=(
+            "Comma-separated method names that should trigger auto-save "
+            "(for example: turn/complete,turn/completed)."
+        ),
+    )
+    parser.add_argument(
+        "--auto-save-title-prefix",
+        default=DEFAULT_AUTO_SAVE_TITLE_PREFIX,
+        help="Title prefix used for auto-saved notes.",
+    )
+    parser.add_argument(
+        "--auto-save-tags",
+        default=DEFAULT_AUTO_SAVE_TAGS,
+        help="Comma-separated tags to pass to save_memory.py for auto-saved notes.",
+    )
+    parser.add_argument(
+        "--auto-save-project-field",
+        default=DEFAULT_AUTO_SAVE_PROJECT_FIELD,
+        help=(
+            "Field name (or dotted path) used to infer project from event payload. "
+            "Falls back to --project if not present."
+        ),
+    )
+    parser.add_argument(
+        "--auto-save-summary-fields",
+        default=DEFAULT_AUTO_SAVE_SUMMARY_FIELDS,
+        help="Comma-separated field names (or dotted paths) pulled into note summary.",
+    )
+    parser.add_argument(
         "--quiet",
         action="store_true",
         help="Suppress non-error stderr logs.",
     )
     return parser.parse_args()
+
+
+def _parse_csv(value: str) -> list[str]:
+    return [part.strip() for part in (value or "").split(",") if part.strip()]
 
 
 def _log(message: str, quiet: bool = False) -> None:
@@ -134,6 +183,162 @@ def _contains_context_compacted(payload: Any) -> bool:
     return False
 
 
+def _normalize_scalar(value: Any, max_chars: int = MAX_FIELD_VALUE_CHARS) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        text = "true" if value else "false"
+    elif isinstance(value, (int, float)):
+        text = str(value)
+    elif isinstance(value, str):
+        text = value.strip()
+    else:
+        text = json.dumps(value, ensure_ascii=False, sort_keys=True)
+    text = " ".join(text.split())
+    if not text:
+        return None
+    if len(text) > max_chars:
+        return f"{text[: max_chars - 3]}..."
+    return text
+
+
+def _extract_by_key(payload: Any, key_name: str) -> str | None:
+    target = key_name.strip().lower()
+    if not target:
+        return None
+    if isinstance(payload, dict):
+        for key, value in payload.items():
+            if str(key).strip().lower() == target:
+                normalized = _normalize_scalar(value)
+                if normalized:
+                    return normalized
+        for value in payload.values():
+            found = _extract_by_key(value, key_name)
+            if found:
+                return found
+    elif isinstance(payload, list):
+        for value in payload:
+            found = _extract_by_key(value, key_name)
+            if found:
+                return found
+    return None
+
+
+def _lookup_dotted_path(payload: Any, path: str) -> str | None:
+    parts = [part.strip() for part in path.split(".") if part.strip()]
+    if not parts:
+        return None
+    current: Any = payload
+    for part in parts:
+        if isinstance(current, dict):
+            if part in current:
+                current = current[part]
+                continue
+            lowered = part.lower()
+            match = next((value for key, value in current.items() if str(key).lower() == lowered), None)
+            if match is None:
+                return None
+            current = match
+            continue
+        if isinstance(current, list) and part.isdigit():
+            index = int(part)
+            if 0 <= index < len(current):
+                current = current[index]
+                continue
+        return None
+    return _normalize_scalar(current)
+
+
+def _extract_field_value(payload: Any, field: str) -> str | None:
+    if not field:
+        return None
+    if "." in field:
+        dotted = _lookup_dotted_path(payload, field)
+        if dotted:
+            return dotted
+        field = field.rsplit(".", 1)[-1]
+    return _extract_by_key(payload, field)
+
+
+def _extract_event_id(message: Any) -> str | None:
+    for field in ("event_id", "eventId", "turn_id", "turnId", "request_id", "requestId", "id"):
+        value = _extract_field_value(message, field)
+        if value:
+            return value
+    return None
+
+
+def _truncate_payload_preview(payload: Any) -> str:
+    try:
+        text = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+    except Exception:
+        text = repr(payload)
+    if len(text) <= MAX_PAYLOAD_PREVIEW_CHARS:
+        return text
+    return f"{text[: MAX_PAYLOAD_PREVIEW_CHARS - 3]}..."
+
+
+def _build_auto_save_title(prefix: str, event_kind: str, event_id: str | None, ts_iso: str) -> str:
+    safe_prefix = prefix.strip() or DEFAULT_AUTO_SAVE_TITLE_PREFIX
+    safe_event = event_kind.strip().replace("/", "-")[:48]
+    safe_suffix = (event_id or ts_iso).strip().replace(" ", "-")[:48]
+    return f"{safe_prefix}: {safe_event} {safe_suffix}".strip()
+
+
+def _build_auto_save_body(
+    *,
+    event_kind: str,
+    thread_id: str | None,
+    event_id: str | None,
+    objective: str,
+    summary_values: list[tuple[str, str]],
+    payload: Any,
+    ts_iso: str,
+) -> str:
+    summary_lines = [f"- Captured app-server event `{event_kind}` for continuity."]
+    if summary_values:
+        for key, value in summary_values:
+            summary_lines.append(f"- {key}: {value}")
+    else:
+        summary_lines.append("- No configured summary fields were present in this event.")
+
+    context_lines = [
+        f"- Timestamp (UTC): {ts_iso}",
+        f"- Thread ID: {thread_id or 'unknown'}",
+        f"- Event ID: {event_id or 'missing'}",
+        f"- Source method: {event_kind}",
+    ]
+    if objective.strip():
+        context_lines.append(f"- Active objective: {objective.strip()}")
+
+    payload_preview = _truncate_payload_preview(payload)
+
+    return (
+        "## Summary\n"
+        + "\n".join(summary_lines)
+        + "\n\n## Context\n"
+        + "\n".join(context_lines)
+        + "\n\n## Decision\n"
+        + "- Persist a compact event snapshot as durable memory for future retrieval.\n"
+        + "\n## Rationale\n"
+        + "- Preserve execution continuity without depending on transient runtime buffers.\n"
+        + "\n## Implementation\n"
+        + "- Event processed by `app_server_compaction_listener.py` auto-save mode.\n"
+        + "- Note persisted via `save_memory.py` to project-scoped memory storage.\n"
+        + "\n## Verification\n"
+        + "- Event matched configured `--auto-save-events` filter.\n"
+        + "- Secret indicator scan passed before persistence.\n"
+        + "\n## Follow-ups\n"
+        + "- Review this note for durable decisions and remove transient detail if needed.\n"
+        + "\n## Event Payload (truncated)\n"
+        + "```json\n"
+        + payload_preview
+        + "\n```\n"
+        + "\n## Changelog\n"
+        + f"- {ts_iso}: created via app_server_compaction_listener auto-save.\n"
+    )
+
+
 def _run_handoff(
     mode: str,
     project: str,
@@ -162,6 +367,33 @@ def _run_handoff(
     return json.loads(completed.stdout)
 
 
+def _run_save_memory(project: str, title: str, body: str, tags: str) -> dict[str, Any]:
+    script_path = Path(__file__).with_name("save_memory.py")
+    cmd = [
+        sys.executable,
+        str(script_path),
+        "--project",
+        project,
+        "--title",
+        title,
+        "--body",
+        body,
+    ]
+    if tags.strip():
+        cmd.extend(["--tags", tags.strip()])
+    completed = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    if completed.returncode != 0:
+        error_text = completed.stderr.strip() or completed.stdout.strip() or "save_memory execution failed"
+        raise RuntimeError(error_text)
+    try:
+        parsed = json.loads(completed.stdout)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("save_memory output was not valid JSON") from exc
+    if not isinstance(parsed, dict):
+        raise RuntimeError("save_memory output JSON must be an object")
+    return parsed
+
+
 def _emit_turn_start(
     output_framing: str,
     request_id_prefix: str,
@@ -188,26 +420,9 @@ def _emit_turn_start(
     print(serialized, flush=True)
 
 
-def _record_event(
-    log_path: str,
-    event: str,
-    mode: str,
-    thread_id: str | None,
-    result: dict[str, Any] | None,
-    error: str | None,
-) -> None:
-    _write_jsonl(
-        log_path,
-        {
-            "ts": int(time.time()),
-            "event": event,
-            "mode": mode,
-            "thread_id": thread_id,
-            "status": "ok" if error is None else "error",
-            "checkpoint_file": None if not result else result.get("checkpoint_file"),
-            "error": error,
-        },
-    )
+def _record_event(log_path: str, payload: dict[str, Any]) -> None:
+    payload_with_ts = {"ts": int(time.time()), **payload}
+    _write_jsonl(log_path, payload_with_ts)
 
 
 def main() -> int:
@@ -226,11 +441,20 @@ def main() -> int:
     else:
         source = sys.stdin.buffer
 
+    auto_save_events = set(_parse_csv(args.auto_save_events))
+    auto_save_summary_fields = _parse_csv(args.auto_save_summary_fields)
+    compaction_enabled = not args.disable_compaction
+
     last_thread_id: str | None = None
-    seen_keys: set[str] = set()
+    seen_compaction_keys: set[str] = set()
+    seen_auto_event_ids: set[str] = set()
     inject_counter = 0
 
-    _log("auto-memory listener started", quiet=args.quiet)
+    _log(
+        "auto-memory listener started "
+        + f"(compaction={'on' if compaction_enabled else 'off'}, autosave={'on' if auto_save_events else 'off'})",
+        quiet=args.quiet,
+    )
     if args.prompt_out:
         Path(args.prompt_out).parent.mkdir(parents=True, exist_ok=True)
 
@@ -240,68 +464,171 @@ def main() -> int:
                 message = json.loads(payload_text)
             except json.JSONDecodeError:
                 continue
+            if not isinstance(message, dict):
+                continue
 
-            method = message.get("method") if isinstance(message, dict) else None
-            params = message.get("params") if isinstance(message, dict) else None
+            method = message.get("method")
+            if not isinstance(method, str):
+                method = ""
+            params = message.get("params")
             thread_id = _extract_thread_id(message) or last_thread_id
             if thread_id:
                 last_thread_id = thread_id
 
-            event_kind = None
-            mode = None
-            if method == "thread/compact/start":
-                event_kind = "thread/compact/start"
-                mode = "pre"
-            elif method == "thread/compacted":
-                event_kind = "thread/compacted"
-                mode = "post"
-            elif _contains_context_compacted(message):
-                event_kind = "context_compacted"
-                mode = "post"
+            if compaction_enabled:
+                event_kind = ""
+                mode = ""
+                if method == "thread/compact/start":
+                    event_kind = "thread/compact/start"
+                    mode = "pre"
+                elif method == "thread/compacted":
+                    event_kind = "thread/compacted"
+                    mode = "post"
+                elif _contains_context_compacted(message):
+                    event_kind = "context_compacted"
+                    mode = "post"
 
-            if not mode:
-                continue
+                if mode:
+                    dedupe_key = f"{event_kind}:{thread_id}:{json.dumps(params, sort_keys=True, default=str)}"
+                    if dedupe_key not in seen_compaction_keys:
+                        seen_compaction_keys.add(dedupe_key)
+                        _log(f"detected {event_kind}, running {mode} handoff", quiet=args.quiet)
+                        result: dict[str, Any] | None = None
+                        err: str | None = None
+                        try:
+                            result = _run_handoff(
+                                mode=mode,
+                                project=project,
+                                objective=args.objective.strip(),
+                                query=args.query.strip(),
+                                limit=max(1, args.limit),
+                            )
+                            prompt = (result.get("reinjection_prompt") or "").strip()
+                            if prompt and args.prompt_out:
+                                Path(args.prompt_out).write_text(prompt + "\n", encoding="utf-8")
+                            if mode == "post" and prompt and args.inject_turn_start and thread_id:
+                                inject_counter += 1
+                                _emit_turn_start(
+                                    output_framing=args.output_framing,
+                                    request_id_prefix=args.request_id_prefix,
+                                    thread_id=thread_id,
+                                    prompt=prompt,
+                                    counter=inject_counter,
+                                )
+                        except Exception as exc:
+                            err = str(exc)
+                            _log(f"handoff error: {err}", quiet=False)
 
-            dedupe_key = f"{event_kind}:{thread_id}:{json.dumps(params, sort_keys=True, default=str)}"
-            if dedupe_key in seen_keys:
-                continue
-            seen_keys.add(dedupe_key)
+                        _record_event(
+                            args.jsonl_log,
+                            {
+                                "action": "compaction",
+                                "event": event_kind,
+                                "mode": mode,
+                                "thread_id": thread_id,
+                                "status": "ok" if err is None else "error",
+                                "project": project,
+                                "checkpoint_file": None if not result else result.get("checkpoint_file"),
+                                "error": err,
+                            },
+                        )
 
-            _log(f"detected {event_kind}, running {mode} handoff", quiet=args.quiet)
-            result: dict[str, Any] | None = None
-            err: str | None = None
-            try:
-                result = _run_handoff(
-                    mode=mode,
-                    project=project,
-                    objective=args.objective.strip(),
-                    query=args.query.strip(),
-                    limit=max(1, args.limit),
+            if auto_save_events and method in auto_save_events:
+                event_id = _extract_event_id(message)
+                if event_id:
+                    dedupe_token = f"{method}:{event_id}"
+                else:
+                    digest = hashlib.sha256(
+                        f"{method}:{thread_id}:{json.dumps(params, sort_keys=True, default=str)}".encode("utf-8")
+                    ).hexdigest()[:16]
+                    dedupe_token = f"{method}:{digest}"
+                if dedupe_token in seen_auto_event_ids:
+                    continue
+                seen_auto_event_ids.add(dedupe_token)
+
+                target_project = project
+                project_hint = _extract_field_value(params if params is not None else message, args.auto_save_project_field)
+                if project_hint:
+                    try:
+                        target_project = ensure_project_name(project_hint)
+                    except MemoryValidationError:
+                        _log(
+                            f"auto-save project hint rejected ({project_hint!r}); using --project={project!r}",
+                            quiet=args.quiet,
+                        )
+
+                summary_values: list[tuple[str, str]] = []
+                summary_source = params if params is not None else message
+                for field_name in auto_save_summary_fields:
+                    value = _extract_field_value(summary_source, field_name)
+                    if value:
+                        summary_values.append((field_name, value))
+
+                ts_iso = now_iso()
+                title = _build_auto_save_title(args.auto_save_title_prefix, method, event_id, ts_iso)
+                body = _build_auto_save_body(
+                    event_kind=method,
+                    thread_id=thread_id,
+                    event_id=event_id,
+                    objective=args.objective,
+                    summary_values=summary_values,
+                    payload=summary_source,
+                    ts_iso=ts_iso,
                 )
-                prompt = (result.get("reinjection_prompt") or "").strip()
-                if prompt and args.prompt_out:
-                    Path(args.prompt_out).write_text(prompt + "\n", encoding="utf-8")
-                if mode == "post" and prompt and args.inject_turn_start and thread_id:
-                    inject_counter += 1
-                    _emit_turn_start(
-                        output_framing=args.output_framing,
-                        request_id_prefix=args.request_id_prefix,
-                        thread_id=thread_id,
-                        prompt=prompt,
-                        counter=inject_counter,
-                    )
-            except Exception as exc:
-                err = str(exc)
-                _log(f"handoff error: {err}", quiet=False)
 
-            _record_event(
-                log_path=args.jsonl_log,
-                event=event_kind,
-                mode=mode,
-                thread_id=thread_id,
-                result=result,
-                error=err,
-            )
+                secret_indicators = detect_secret_indicators(f"{title}\n{body}")
+                if secret_indicators:
+                    _log(
+                        f"auto-save skipped for {method}: secret indicators detected ({','.join(secret_indicators)})",
+                        quiet=False,
+                    )
+                    _record_event(
+                        args.jsonl_log,
+                        {
+                            "action": "autosave",
+                            "event": method,
+                            "mode": "autosave",
+                            "thread_id": thread_id,
+                            "event_id": event_id,
+                            "status": "skipped_secret",
+                            "project": target_project,
+                            "title": title,
+                            "secret_indicators": secret_indicators,
+                            "error": None,
+                        },
+                    )
+                    continue
+
+                save_result: dict[str, Any] | None = None
+                save_error: str | None = None
+                try:
+                    save_result = _run_save_memory(
+                        project=target_project,
+                        title=title,
+                        body=body,
+                        tags=args.auto_save_tags,
+                    )
+                    _log(f"auto-save persisted for {method} in project {target_project}", quiet=args.quiet)
+                except Exception as exc:
+                    save_error = str(exc)
+                    _log(f"auto-save error: {save_error}", quiet=False)
+
+                _record_event(
+                    args.jsonl_log,
+                    {
+                        "action": "autosave",
+                        "event": method,
+                        "mode": "autosave",
+                        "thread_id": thread_id,
+                        "event_id": event_id,
+                        "status": "ok" if save_error is None else "error",
+                        "project": target_project,
+                        "title": title,
+                        "note_file": None if not save_result else save_result.get("file"),
+                        "canonical_file": None if not save_result else save_result.get("canonical_file"),
+                        "error": save_error,
+                    },
+                )
     finally:
         if source_file:
             source_file.close()
