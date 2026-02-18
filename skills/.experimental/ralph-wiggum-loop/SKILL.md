@@ -23,6 +23,15 @@ Run a deterministic, single-process orchestrator that plans one change-set, appl
   - Uses OpenAI Chat Completions with strict JSON change-set parsing.
   - Required env var defaults to `OPENAI_API_KEY` (configurable via `llm.api_key_env`).
   - Configurable fields: `llm.model`, `llm.base_url`, `llm.api_key_env`, `llm.timeout_seconds`.
+  - Context controls: `llm.context_max_files`, `llm.context_max_chars_per_file`, `llm.context_max_total_chars`.
+
+## Patch Apply Safety
+
+- `replace_text` first tries exact target matching.
+- If exact target is missing, fuzzy fallback is allowed only when:
+  - best similarity is `>= fuzzy_min_similarity` (default `0.94`)
+  - and best-vs-second score gap is `>= fuzzy_min_gap` (default `0.03`)
+- Empty change sets are treated as explicit no-op (`mode=no_op`) instead of failure.
 
 ## Commands
 
@@ -49,6 +58,12 @@ export OPENAI_API_KEY="<set-your-api-key>"
 python3 "$RALPH_DIR/scripts/ralph_loop.py" \
   --config "$RALPH_DIR/references/config.example.yaml"
 ```
+
+## Independence and Integration
+
+- Standalone: this skill can operate by itself with local verification commands.
+- Optional integration with `$auto-memory`: use memory snapshots for richer iteration context.
+- Optional integration with `$self-improve`: use one-change + gate decisions as acceptance wrapper around Ralph iterations.
 
 ## Behavior Guarantees
 

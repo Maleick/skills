@@ -28,10 +28,18 @@ work_dir: ""
 # LLM adapter (stub for offline, openai for model-driven planning)
 llm:
   adapter: "stub"                        # stub | openai
-  model: "gpt-4.1-mini"                 # used when adapter=openai
+  model: "gpt-4.1-mini"                  # used when adapter=openai
   base_url: "https://api.openai.com/v1" # optional override
-  api_key_env: "OPENAI_API_KEY"         # env var to read API key from
-  timeout_seconds: 60                   # request timeout for OpenAI calls
+  api_key_env: "OPENAI_API_KEY"          # env var to read API key from
+  timeout_seconds: 60                    # request timeout for OpenAI calls
+  context_max_files: 8                   # max files to include in prompt context
+  context_max_chars_per_file: 1800       # per-file context cap
+  context_max_total_chars: 12000         # total context cap
+
+# Safe fuzzy fallback for replace_text misses
+patch_apply:
+  fuzzy_min_similarity: 0.94             # require high-confidence candidate
+  fuzzy_min_gap: 0.03                    # require clear margin over second candidate
 
 # Optional context tuning
 loop_memory_window: 5

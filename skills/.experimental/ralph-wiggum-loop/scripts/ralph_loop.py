@@ -33,6 +33,11 @@ DEFAULT_OUTPUT_TAIL_LINES = 120
 DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
 DEFAULT_OPENAI_MODEL = "gpt-4.1-mini"
 DEFAULT_OPENAI_TIMEOUT_SECONDS = 60.0
+DEFAULT_CONTEXT_MAX_FILES = 8
+DEFAULT_CONTEXT_MAX_CHARS_PER_FILE = 1800
+DEFAULT_CONTEXT_MAX_TOTAL_CHARS = 12000
+DEFAULT_FUZZY_MIN_SIMILARITY = 0.94
+DEFAULT_FUZZY_MIN_GAP = 0.03
 JSON_FENCE_RE = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.DOTALL)
 
 
@@ -58,6 +63,18 @@ def parse_float(value: Any, default: float, field_name: str) -> float:
         raise ValueError(f"{field_name} must be numeric") from exc
     if parsed <= 0:
         raise ValueError(f"{field_name} must be > 0")
+    return parsed
+
+
+def parse_int(value: Any, default: int, field_name: str, minimum: int = 1) -> int:
+    if value in (None, ""):
+        return default
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{field_name} must be an integer") from exc
+    if parsed < minimum:
+        raise ValueError(f"{field_name} must be >= {minimum}")
     return parsed
 
 
@@ -211,6 +228,39 @@ class RalphLoop:
             DEFAULT_OPENAI_TIMEOUT_SECONDS,
             "llm.timeout_seconds",
         )
+        self.context_max_files = parse_int(
+            self.llm_config.get("context_max_files", DEFAULT_CONTEXT_MAX_FILES),
+            DEFAULT_CONTEXT_MAX_FILES,
+            "llm.context_max_files",
+            minimum=1,
+        )
+        self.context_max_chars_per_file = parse_int(
+            self.llm_config.get("context_max_chars_per_file", DEFAULT_CONTEXT_MAX_CHARS_PER_FILE),
+            DEFAULT_CONTEXT_MAX_CHARS_PER_FILE,
+            "llm.context_max_chars_per_file",
+            minimum=200,
+        )
+        self.context_max_total_chars = parse_int(
+            self.llm_config.get("context_max_total_chars", DEFAULT_CONTEXT_MAX_TOTAL_CHARS),
+            DEFAULT_CONTEXT_MAX_TOTAL_CHARS,
+            "llm.context_max_total_chars",
+            minimum=1000,
+        )
+        patch_apply_config = dict(config.get("patch_apply") or {})
+        self.fuzzy_min_similarity = parse_float(
+            patch_apply_config.get("fuzzy_min_similarity", DEFAULT_FUZZY_MIN_SIMILARITY),
+            DEFAULT_FUZZY_MIN_SIMILARITY,
+            "patch_apply.fuzzy_min_similarity",
+        )
+        self.fuzzy_min_gap = parse_float(
+            patch_apply_config.get("fuzzy_min_gap", DEFAULT_FUZZY_MIN_GAP),
+            DEFAULT_FUZZY_MIN_GAP,
+            "patch_apply.fuzzy_min_gap",
+        )
+        if self.fuzzy_min_similarity > 1.0:
+            raise ValueError("patch_apply.fuzzy_min_similarity must be <= 1.0")
+        if self.fuzzy_min_gap > 1.0:
+            raise ValueError("patch_apply.fuzzy_min_gap must be <= 1.0")
 
         self.prompt_template_path = (
             Path(__file__).resolve().parent.parent / "references" / "prompt_template.md"
@@ -387,7 +437,10 @@ class RalphLoop:
             f"readonly={self.readonly}\n"
             f"dry_run={self.dry_run}\n"
             f"acceptance_criteria={criteria}\n"
-            f"mode={self.mode} max_iterations={self.max_iterations}"
+            f"mode={self.mode} max_iterations={self.max_iterations}\n"
+            f"context_max_files={self.context_max_files} context_max_chars_per_file={self.context_max_chars_per_file} "
+            f"context_max_total_chars={self.context_max_total_chars}\n"
+            f"fuzzy_min_similarity={self.fuzzy_min_similarity:.3f} fuzzy_min_gap={self.fuzzy_min_gap:.3f}"
         )
 
     def _build_prompt(self, context: dict[str, Any], plan: dict[str, Any]) -> str:
@@ -400,6 +453,7 @@ class RalphLoop:
             "goal": self.goal,
             "constraints": context.get("constraints", ""),
             "repo_summary": context.get("repo_summary", ""),
+            "file_context": context.get("file_context", ""),
             "last_outcome": context.get("last_outcome", ""),
             "recent_failures": context.get("recent_failures", ""),
             "failing_output": context.get("failing_output", ""),
@@ -461,6 +515,75 @@ class RalphLoop:
             }
         return self._run_shell_command(lint_command)
 
+    def _is_allowed_rel_path(self, rel_posix: str) -> bool:
+        if not self.allowed_paths:
+            return True
+        return any(
+            rel_posix == prefix or rel_posix.startswith(prefix + "/")
+            for prefix in self.allowed_paths
+        )
+
+    def _build_file_context(self) -> str:
+        ignored_dirs = {
+            ".git",
+            ".ralph",
+            "__pycache__",
+            ".venv",
+            "venv",
+            "node_modules",
+            "dist",
+            "build",
+        }
+        candidates: list[Path] = []
+        for root, dirs, filenames in os.walk(self.repo_path):
+            dirs[:] = [d for d in dirs if d not in ignored_dirs]
+            for filename in sorted(filenames):
+                full_path = Path(root) / filename
+                try:
+                    rel_posix = full_path.relative_to(self.repo_path).as_posix()
+                except Exception:
+                    continue
+                if not self._is_allowed_rel_path(rel_posix):
+                    continue
+                candidates.append(full_path)
+                if len(candidates) >= self.context_max_files:
+                    break
+            if len(candidates) >= self.context_max_files:
+                break
+
+        if not candidates:
+            return "No file context available."
+
+        blocks: list[str] = []
+        total_chars = 0
+        for path in candidates:
+            try:
+                content = path.read_text(encoding="utf-8")
+            except Exception:
+                continue
+            if "\x00" in content:
+                continue
+
+            rel_posix = path.relative_to(self.repo_path).as_posix()
+            remaining = self.context_max_total_chars - total_chars
+            if remaining <= 0:
+                break
+
+            snippet = content[: min(self.context_max_chars_per_file, remaining)]
+            if not snippet.strip():
+                continue
+
+            truncated = len(content) > len(snippet)
+            header = f"### File: {rel_posix}"
+            if truncated:
+                header += " (truncated)"
+            block = f"{header}\n```\n{snippet}\n```"
+
+            blocks.append(block)
+            total_chars += len(snippet)
+
+        return "\n\n".join(blocks) if blocks else "No file context available."
+
     def _resolve_repo_path(self, relative_path: str) -> Path:
         rel = relative_path.replace("\\", "/").lstrip("/")
         candidate = (self.repo_path / rel).resolve()
@@ -468,16 +591,11 @@ class RalphLoop:
         if candidate != repo_root and repo_root not in candidate.parents:
             raise ValueError(f"Path escapes repository: {relative_path}")
 
-        if self.allowed_paths:
-            rel_posix = candidate.relative_to(repo_root).as_posix()
-            permitted = any(
-                rel_posix == prefix or rel_posix.startswith(prefix + "/")
-                for prefix in self.allowed_paths
+        rel_posix = candidate.relative_to(repo_root).as_posix()
+        if not self._is_allowed_rel_path(rel_posix):
+            raise ValueError(
+                f"Path blocked by allowed_paths: {rel_posix} (allowed: {', '.join(self.allowed_paths)})"
             )
-            if not permitted:
-                raise ValueError(
-                    f"Path blocked by allowed_paths: {rel_posix} (allowed: {', '.join(self.allowed_paths)})"
-                )
 
         return candidate
 
@@ -683,6 +801,7 @@ class RalphLoop:
             "goal": self.goal,
             "constraints": self._constraints_summary(),
             "repo_summary": self._build_repo_summary(),
+            "file_context": self._build_file_context(),
             "last_outcome": f"last_outcome={self.state.get('last_outcome')} last_failure_domain={self.state.get('last_failure_domain')}",
             "recent_failures": self._read_recent_failures(),
             "failing_output": self._extract_recent_failing_output(),
@@ -725,6 +844,69 @@ class RalphLoop:
     def call_tool(self, context: dict[str, Any], plan: dict[str, Any]) -> dict[str, Any]:
         return self.call_llm(context, plan)
 
+    def _fuzzy_replace(self, old_text: str, target: str, replacement: str) -> tuple[str, dict[str, Any]]:
+        if target in old_text:
+            return old_text.replace(target, replacement, 1), {
+                "mode": "exact",
+                "similarity": 1.0,
+            }
+
+        target_lines = target.splitlines(keepends=True)
+        if not target_lines:
+            raise ValueError("target text not found")
+
+        lines = old_text.splitlines(keepends=True)
+        if not lines:
+            raise ValueError("target text not found")
+
+        window_size = max(1, len(target_lines))
+        candidates: list[tuple[float, int, int]] = []
+        for start in range(0, len(lines) - window_size + 1):
+            chunk = "".join(lines[start : start + window_size])
+            ratio_raw = difflib.SequenceMatcher(None, target, chunk).ratio()
+            ratio_stripped = difflib.SequenceMatcher(None, target.strip(), chunk.strip()).ratio()
+            ratio = max(ratio_raw, ratio_stripped)
+            candidates.append((ratio, start, start + window_size))
+
+        if not candidates:
+            raise ValueError("target text not found")
+
+        candidates.sort(key=lambda item: item[0], reverse=True)
+        best_ratio, best_start, best_end = candidates[0]
+        second_ratio = candidates[1][0] if len(candidates) > 1 else 0.0
+
+        if best_ratio < self.fuzzy_min_similarity:
+            raise ValueError(
+                f"target text not found; fuzzy best similarity {best_ratio:.3f} < {self.fuzzy_min_similarity:.3f}"
+            )
+        if (best_ratio - second_ratio) < self.fuzzy_min_gap:
+            raise ValueError(
+                f"target text ambiguous; best/second gap {best_ratio - second_ratio:.3f} < {self.fuzzy_min_gap:.3f}"
+            )
+
+        offsets: list[int] = [0]
+        for line in lines:
+            offsets.append(offsets[-1] + len(line))
+
+        start_idx = offsets[best_start]
+        end_idx = offsets[best_end]
+        matched_chunk = old_text[start_idx:end_idx]
+        adjusted_replacement = replacement
+        if "\n" not in replacement:
+            leading_ws = matched_chunk[: len(matched_chunk) - len(matched_chunk.lstrip())]
+            if leading_ws and replacement == replacement.lstrip():
+                adjusted_replacement = leading_ws + replacement
+            if matched_chunk.endswith("\n") and not adjusted_replacement.endswith("\n"):
+                adjusted_replacement += "\n"
+
+        new_text = old_text[:start_idx] + adjusted_replacement + old_text[end_idx:]
+        return new_text, {
+            "mode": "fuzzy",
+            "similarity": round(best_ratio, 6),
+            "second_similarity": round(second_ratio, 6),
+            "matched_lines": [best_start + 1, best_end],
+        }
+
     def apply_changes(self, patch_instruction: dict[str, Any]) -> dict[str, Any]:
         changes = patch_instruction.get("changes") or []
         if not isinstance(changes, list):
@@ -737,10 +919,10 @@ class RalphLoop:
             }
 
         if not changes:
-            self.last_patch_path.write_text("# No changes proposed by patch instruction.\n", encoding="utf-8")
+            self.last_patch_path.write_text("# No-op: patch instruction contained no changes.\n", encoding="utf-8")
             return {
-                "ok": False,
-                "error": "No changes in patch instruction",
+                "ok": True,
+                "mode": "no_op",
                 "changed_files": [],
                 "dry_run": self.dry_run,
                 "readonly": self.readonly,
@@ -748,6 +930,7 @@ class RalphLoop:
 
         changed_files: list[str] = []
         diffs: list[str] = []
+        fuzzy_matches: list[dict[str, Any]] = []
 
         try:
             for change in changes:
@@ -766,10 +949,16 @@ class RalphLoop:
 
                     if count <= 0:
                         raise ValueError("replace_text count must be >= 1")
-                    if target not in old_text:
-                        raise ValueError(f"target text not found in {rel_path}")
-
-                    new_text = old_text.replace(target, replacement, count)
+                    if target in old_text:
+                        new_text = old_text.replace(target, replacement, count)
+                    else:
+                        if count != 1:
+                            raise ValueError(
+                                f"target text not found in {rel_path}; fuzzy fallback requires count=1"
+                            )
+                        new_text, fuzzy_meta = self._fuzzy_replace(old_text, target, replacement)
+                        fuzzy_meta["path"] = rel_path
+                        fuzzy_matches.append(fuzzy_meta)
                 elif op == "write_file":
                     new_text = str(change.get("content", ""))
                 else:
@@ -810,6 +999,7 @@ class RalphLoop:
                 "diff_path": str(self.last_patch_path),
                 "dry_run": self.dry_run,
                 "readonly": self.readonly,
+                "fuzzy_matches": fuzzy_matches,
             }
         except Exception as exc:
             self.last_patch_path.write_text(
@@ -926,6 +1116,14 @@ class RalphLoop:
                 "constraints change",
             )
 
+        if apply_result.get("mode") == "no_op" and acceptance.get("met", False):
+            return (
+                "none",
+                "no_error",
+                "No-op accepted because acceptance criteria were met.",
+                "none",
+            )
+
         if lint and not lint.get("ok", True):
             signature = str(lint.get("output_tail") or "lint failed")
             return (
@@ -1017,6 +1215,7 @@ class RalphLoop:
                 "goal": self.goal,
                 "constraints": self._constraints_summary(),
                 "repo_summary": "Context load failed.",
+                "file_context": "Context unavailable due to load error.",
                 "last_outcome": f"last_outcome={self.state.get('last_outcome')}",
                 "recent_failures": self._read_recent_failures(),
                 "failing_output": "",
@@ -1239,6 +1438,24 @@ def validate_config(config: dict[str, Any]) -> dict[str, Any]:
         DEFAULT_OPENAI_TIMEOUT_SECONDS,
         "llm.timeout_seconds",
     )
+    context_max_files = parse_int(
+        llm.get("context_max_files", DEFAULT_CONTEXT_MAX_FILES),
+        DEFAULT_CONTEXT_MAX_FILES,
+        "llm.context_max_files",
+        minimum=1,
+    )
+    context_max_chars_per_file = parse_int(
+        llm.get("context_max_chars_per_file", DEFAULT_CONTEXT_MAX_CHARS_PER_FILE),
+        DEFAULT_CONTEXT_MAX_CHARS_PER_FILE,
+        "llm.context_max_chars_per_file",
+        minimum=200,
+    )
+    context_max_total_chars = parse_int(
+        llm.get("context_max_total_chars", DEFAULT_CONTEXT_MAX_TOTAL_CHARS),
+        DEFAULT_CONTEXT_MAX_TOTAL_CHARS,
+        "llm.context_max_total_chars",
+        minimum=1000,
+    )
 
     config["llm"] = {
         "adapter": adapter,
@@ -1246,6 +1463,30 @@ def validate_config(config: dict[str, Any]) -> dict[str, Any]:
         "base_url": base_url,
         "api_key_env": api_key_env,
         "timeout_seconds": timeout_seconds,
+        "context_max_files": context_max_files,
+        "context_max_chars_per_file": context_max_chars_per_file,
+        "context_max_total_chars": context_max_total_chars,
+    }
+    patch_apply = config.get("patch_apply") or {}
+    if not isinstance(patch_apply, dict):
+        raise ValueError("patch_apply must be a mapping/object")
+    fuzzy_min_similarity = parse_float(
+        patch_apply.get("fuzzy_min_similarity", DEFAULT_FUZZY_MIN_SIMILARITY),
+        DEFAULT_FUZZY_MIN_SIMILARITY,
+        "patch_apply.fuzzy_min_similarity",
+    )
+    fuzzy_min_gap = parse_float(
+        patch_apply.get("fuzzy_min_gap", DEFAULT_FUZZY_MIN_GAP),
+        DEFAULT_FUZZY_MIN_GAP,
+        "patch_apply.fuzzy_min_gap",
+    )
+    if fuzzy_min_similarity > 1.0:
+        raise ValueError("patch_apply.fuzzy_min_similarity must be <= 1.0")
+    if fuzzy_min_gap > 1.0:
+        raise ValueError("patch_apply.fuzzy_min_gap must be <= 1.0")
+    config["patch_apply"] = {
+        "fuzzy_min_similarity": fuzzy_min_similarity,
+        "fuzzy_min_gap": fuzzy_min_gap,
     }
     config.setdefault("loop_memory_window", DEFAULT_MEMORY_WINDOW)
     config.setdefault("output_tail_lines", DEFAULT_OUTPUT_TAIL_LINES)

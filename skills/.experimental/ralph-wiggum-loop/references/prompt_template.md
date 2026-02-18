@@ -9,6 +9,9 @@
 ## Repository Summary (bounded)
 {{repo_summary}}
 
+## File Context Snippets (bounded)
+{{file_context}}
+
 ## Last Outcome
 {{last_outcome}}
 
@@ -25,7 +28,9 @@
 {{single_step_instruction}}
 
 ## Response Contract
-Return exactly one change-set as JSON with this shape:
+Return exactly one change-set as JSON with this shape.
+If no safe or useful change is justified, return `changes: []` (explicit no-op).
+When using `replace_text`, copy `target` exactly from the provided file context snippets when possible.
 
 ```json
 {
