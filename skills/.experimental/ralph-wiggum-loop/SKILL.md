@@ -1,0 +1,69 @@
+---
+name: ralph-wiggum-loop
+description: Run a single-process monolithic orchestrator loop over one repository/problem space with exactly one planned change and one verification pass per iteration, persistent .ralph state, failure-domain logging, and offline demo repair. Use when users want autonomous incremental repair/refactor loops with resumability and strict iteration contracts.
+---
+
+# Ralph Wiggum Loop
+
+Run a deterministic, single-process orchestrator that plans one change-set, applies it, verifies once, and records iteration state. Use this skill for goal-driven local repair/refactor loops with resumability and strict per-iteration contracts.
+
+## Workflow
+
+1. Generate or choose a target repository.
+2. Prepare a config (or CLI overrides) including `goal`, `repo_path`, `test_command`, and `acceptance_criteria`.
+3. Run `scripts/ralph_loop.py` in `auto` or `step` mode.
+4. Inspect `.ralph/` artifacts for iteration history, failure domains, and last patch.
+
+## LLM Adapters
+
+- `llm.adapter=stub`:
+  - Offline deterministic behavior for demo repair (`RALPH_FIXME:addition_bug` path).
+  - No API key required.
+- `llm.adapter=openai`:
+  - Uses OpenAI Chat Completions with strict JSON change-set parsing.
+  - Required env var defaults to `OPENAI_API_KEY` (configurable via `llm.api_key_env`).
+  - Configurable fields: `llm.model`, `llm.base_url`, `llm.api_key_env`, `llm.timeout_seconds`.
+
+## Commands
+
+```bash
+export CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
+export RALPH_DIR="$CODEX_HOME/skills/ralph-wiggum-loop"
+
+# Generate offline demo repo with failing tests
+python3 "$RALPH_DIR/scripts/demo_repo_generator.py" --output /tmp/ralph-demo
+
+# Run loop against demo
+python3 "$RALPH_DIR/scripts/ralph_loop.py" \
+  --goal "Make tests pass" \
+  --repo_path /tmp/ralph-demo \
+  --test_command "python3 -m unittest -q" \
+  --mode auto \
+  --max_iterations 5
+
+# Or run via config
+python3 "$RALPH_DIR/scripts/ralph_loop.py" --config "$RALPH_DIR/references/config.example.yaml"
+
+# OpenAI-backed run (optional)
+export OPENAI_API_KEY="<set-your-api-key>"
+python3 "$RALPH_DIR/scripts/ralph_loop.py" \
+  --config "$RALPH_DIR/references/config.example.yaml"
+```
+
+## Behavior Guarantees
+
+- Single-process loop owner for planning, patching, verification, and state.
+- Exact per-iteration sequence:
+  `load_context()` -> `plan_step()` -> `call_llm()`/`call_tool()` -> `apply_changes()` -> `run_verification()` -> `record_iteration()`.
+- Exactly one planned change-set and one verification pass per iteration.
+- Persistent `.ralph/` state with resumable execution.
+- Failure-domain classification and operator levers appended to `.ralph/failures.md` each iteration.
+
+## Files In This Skill
+
+- `scripts/ralph_loop.py`: Main orchestrator loop.
+- `scripts/demo_repo_generator.py`: Offline demo repo creator.
+- `references/config.example.yaml`: Config template.
+- `references/prompt_template.md`: Prompt composition template used each iteration.
+- `references/failure_domains.md`: Failure taxonomy and operator guidance.
+- `requirements.txt`: Minimal dependency set.

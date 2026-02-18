@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ralph Wiggum Loop"
+  short_description: "Single-process one-change orchestration loop"
+  default_prompt: "Run a one-change-per-iteration Ralph loop on this repository until acceptance criteria pass."
