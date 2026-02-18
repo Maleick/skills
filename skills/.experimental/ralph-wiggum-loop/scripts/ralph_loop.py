@@ -931,6 +931,7 @@ class RalphLoop:
         changed_files: list[str] = []
         diffs: list[str] = []
         fuzzy_matches: list[dict[str, Any]] = []
+        staged_writes: list[tuple[Path, str, str, bool]] = []
 
         try:
             for change in changes:
@@ -975,11 +976,24 @@ class RalphLoop:
                 if diff:
                     diffs.append(diff)
 
-                if not self.readonly and not self.dry_run:
-                    file_path.parent.mkdir(parents=True, exist_ok=True)
-                    file_path.write_text(new_text, encoding="utf-8")
+                staged_writes.append((file_path, old_text, new_text, file_path.exists()))
 
                 changed_files.append(rel_path)
+
+            if not self.readonly and not self.dry_run:
+                applied_writes: list[tuple[Path, str, bool]] = []
+                try:
+                    for file_path, old_text, new_text, existed_before in staged_writes:
+                        file_path.parent.mkdir(parents=True, exist_ok=True)
+                        file_path.write_text(new_text, encoding="utf-8")
+                        applied_writes.append((file_path, old_text, existed_before))
+                except Exception:
+                    for applied_path, old_text, existed_before in reversed(applied_writes):
+                        if existed_before:
+                            applied_path.write_text(old_text, encoding="utf-8")
+                        elif applied_path.exists():
+                            applied_path.unlink()
+                    raise
 
             diff_text = "\n".join(diffs).strip()
             if not diff_text:
@@ -1400,8 +1414,18 @@ def validate_config(config: dict[str, Any]) -> dict[str, Any]:
 
     if not isinstance(config["acceptance_criteria"], list):
         raise ValueError("acceptance_criteria must be a list")
+    normalized_criteria = [str(item).strip() for item in config["acceptance_criteria"]]
+    config["acceptance_criteria"] = normalized_criteria
     if "tests_pass" not in config["acceptance_criteria"]:
         raise ValueError("acceptance_criteria must include 'tests_pass'")
+    allowed_criteria = {"tests_pass", "lint_pass"}
+    unsupported_criteria = [item for item in config["acceptance_criteria"] if item not in allowed_criteria]
+    if unsupported_criteria:
+        raise ValueError(
+            "Unsupported acceptance_criteria value(s): "
+            + ", ".join(unsupported_criteria)
+            + ". Allowed values: tests_pass, lint_pass"
+        )
 
     config["mode"] = str(config.get("mode", DEFAULT_MODE)).strip().lower() or DEFAULT_MODE
     if config["mode"] not in {"auto", "step"}:
