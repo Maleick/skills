@@ -33,7 +33,13 @@ def read_value(args: argparse.Namespace) -> str:
 
 
 def quote_env_value(value: str) -> str:
-    escaped = value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+    escaped = (
+        value.replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("$", "\\$")
+        .replace("`", "\\`")
+        .replace("\n", "\\n")
+    )
     return f"\"{escaped}\""
 
 

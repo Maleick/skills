@@ -83,6 +83,7 @@ def clear_superseded_marker(note_path: Path) -> None:
 
     note = read_note(note_path)
     frontmatter = dict(note.frontmatter)
+    body_lines = note.body.splitlines()
     changed = False
     if "superseded_by" in frontmatter:
         frontmatter.pop("superseded_by", None)
@@ -90,8 +91,14 @@ def clear_superseded_marker(note_path: Path) -> None:
     if "superseded_at" in frontmatter:
         frontmatter.pop("superseded_at", None)
         changed = True
+    if body_lines and body_lines[0].startswith("> Superseded by `"):
+        body_lines = body_lines[1:]
+        if body_lines and body_lines[0].strip() == "":
+            body_lines = body_lines[1:]
+        changed = True
     if changed:
-        write_note(note.path, frontmatter, note.body)
+        new_body = "\n".join(body_lines).strip() + "\n"
+        write_note(note.path, frontmatter, new_body)
 
 
 def latest_by_declared_date(notes):
@@ -204,4 +211,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

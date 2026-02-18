@@ -402,6 +402,7 @@ def _emit_turn_start(
     counter: int,
 ) -> None:
     request = {
+        "jsonrpc": "2.0",
         "id": f"{request_id_prefix}-{counter}",
         "method": "turn/start",
         "params": {
