@@ -1,0 +1,4 @@
+interface:
+  display_name: "Auto Memory"
+  short_description: "Persist, restore, and re-inject memory"
+  default_prompt: "Use $auto-memory to load prior decisions, checkpoint before compaction, and re-inject context after compaction."
