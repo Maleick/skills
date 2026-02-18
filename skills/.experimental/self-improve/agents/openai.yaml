@@ -1,0 +1,4 @@
+interface:
+  display_name: "Self Improve"
+  short_description: "Iterative improvement loop with memory + eval gates"
+  default_prompt: "Use $self-improve to run one improvement iteration with smoke+regression checks and save the decision to auto-memory."
