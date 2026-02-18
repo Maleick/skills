@@ -109,7 +109,7 @@ When secret persistence is required:
 python3 "$AUTO_MEMORY_DIR/scripts/store_secret_env.py" \
   --project "<project>" \
   --var "<ENV_NAME>" \
-  --value "<secret>"
+  --value-file /path/to/secret.txt
 ```
 
 ## References

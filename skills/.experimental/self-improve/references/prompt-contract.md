@@ -19,7 +19,7 @@ Rules:
 - `project`, `objective`, `repo_path`, `smoke_command`, `regression_command` are mandatory.
 - If any mandatory field is missing, ask and stop before planning changes.
 - Plan exactly one bounded change-set per iteration.
-- If objective appears already satisfied, return explicit no-op with empty `changes`.
+- If objective appears already satisfied, return explicit no-op while keeping the required output schema unchanged.
 - Never plan more than one verification pass per gate in a single iteration.
 
 ## Required Iteration Output Object
