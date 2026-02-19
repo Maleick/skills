@@ -1,0 +1,23 @@
+{
+  "id": "TASK_ABC_001",
+  "title": "Implement protocol validator",
+  "state": "in_progress",
+  "priority": "high",
+  "owner_role": "Builder",
+  "owner_id": "builder-01",
+  "claimed_until": "2099-01-01T00:00:00Z",
+  "artifacts": [
+    "/tmp/protocol/validator.log"
+  ],
+  "verification": [
+    {
+      "command": "python3 scripts/validate_task_card.py --input sample.json",
+      "status": "pass",
+      "evidence": "validation passed"
+    }
+  ],
+  "blockers": [],
+  "next_action": "Submit handoff package for review",
+  "created_at": "2026-02-19T00:00:00Z",
+  "updated_at": "2026-02-19T00:15:00Z"
+}

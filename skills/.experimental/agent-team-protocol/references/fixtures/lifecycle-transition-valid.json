@@ -1,0 +1,8 @@
+{
+  "from_state": "assigned",
+  "to_state": "in_progress",
+  "actor_role": "Builder",
+  "actor_id": "builder-01",
+  "author_id": "orchestrator-01",
+  "claimed_until": "2099-01-01T00:00:00Z"
+}
