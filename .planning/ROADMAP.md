@@ -13,7 +13,7 @@ This roadmap delivers a practical quality and discovery system for the skills re
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Validator Foundation** - Build full-catalog scan and baseline finding model. (completed 2026-02-25)
-- [ ] **Phase 2: Metadata Integrity Rules** - Add tier-aware policy and cross-file parity checks.
+- [x] **Phase 2: Metadata Integrity Rules** - Add tier-aware policy and cross-file parity checks. (completed 2026-02-25)
 - [ ] **Phase 3: Discovery and Reporting Outputs** - Generate JSON index and markdown remediation summary.
 - [ ] **Phase 4: CI Gate Hardening** - Add policy thresholds and operational reliability checks.
 
@@ -42,12 +42,12 @@ Plans:
   1. Experimental tier issues can be reported with warning-biased policy without masking true invalid states.
   2. `SKILL.md` and `agents/openai.yaml` mismatches are detected with actionable remediation.
   3. Broken local references to scripts/references/assets are detected and localized.
-**Plans**: 3 plans
+**Plans**: 3/3 plans complete
 
 Plans:
-- [ ] 02-01: Implement tier policy profile resolution and severity override behavior.
-- [ ] 02-02: Implement `SKILL.md` ↔ `openai.yaml` parity checks.
-- [ ] 02-03: Implement local reference-path validation rules and tests.
+- [x] 02-01: Implement tier policy profile resolution and severity override behavior.
+- [x] 02-02: Implement `SKILL.md` ↔ `openai.yaml` parity checks.
+- [x] 02-03: Implement local reference-path validation rules and tests.
 
 ### Phase 3: Discovery and Reporting Outputs
 **Goal**: Maintainers and CI systems receive stable machine and human outputs from one canonical findings model.
@@ -86,6 +86,6 @@ Phases execute in numeric order: 2 → 2.1 → 2.2 → 3 → 3.1 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Validator Foundation | 3/3 | Complete   | 2026-02-25 |
-| 2. Metadata Integrity Rules | 0/3 | Not started | - |
+| 2. Metadata Integrity Rules | 3/3 | Complete   | 2026-02-25 |
 | 3. Discovery and Reporting Outputs | 0/3 | Not started | - |
 | 4. CI Gate Hardening | 0/2 | Not started | - |
