@@ -8,6 +8,15 @@ A repository quality and discovery layer for `/opt/skills` that validates skill 
 
 Maintainers can run one reliable validation workflow that catches structural and metadata drift across all skills before changes are merged.
 
+## Current Milestone: v1.1 Performance & Policy
+
+**Goal:** Make the validator faster on real repositories and safely configurable across teams without forking rule code.
+
+**Target features:**
+- Incremental changed-files scan mode for faster local and CI feedback loops.
+- Repository override configuration for rule/profile customization.
+- Clear CLI/reporting visibility into active override and policy behavior.
+
 ## Current State
 
 - **Shipped milestone:** v1.0 MVP (2026-02-25)
@@ -35,8 +44,9 @@ Maintainers can run one reliable validation workflow that catches structural and
 
 ### Active
 
-- [ ] Define v1.1 requirements and roadmap via `$gsd-new-milestone`.
-- [ ] Decide next milestone focus (incremental scan performance, rule extensibility, or workflow UX).
+- [ ] Deliver incremental changed-files scanning with deterministic behavior and stable output contracts.
+- [ ] Add repository override profiles for rule policy customization without code edits.
+- [ ] Keep CI and reporting surfaces explicit about active scope/profile decisions.
 
 ### Out of Scope
 
@@ -46,13 +56,13 @@ Maintainers can run one reliable validation workflow that catches structural and
 
 ## Next Milestone Goals
 
-1. Establish v1.1 milestone intent and requirement set.
-2. Prioritize either incremental changed-files scan (`PERF-01`) or repository policy override support (`RULE-01`).
-3. Define acceptance criteria before introducing autofix/trend capabilities.
+1. Implement changed-files scan mode (`PERF-*`) and verify runtime reductions on typical workflows.
+2. Implement repository override config (`RULE-*`) with strict validation and predictable fallback behavior.
+3. Preserve compatibility across JSON/markdown outputs and CI gate semantics under override scenarios.
 
 ## Context
 
-v1.0 established a stable validation platform with deterministic outputs and CI policy controls. The immediate next step is scope selection for v1.1 rather than additional unplanned phase execution.
+v1.0 established a stable validation platform with deterministic outputs and CI policy controls. v1.1 focuses on operational scalability (faster scans) and governance flexibility (repo-level policy overrides) while keeping deterministic, testable behavior intact.
 
 ## Key Decisions
 
@@ -62,6 +72,7 @@ v1.0 established a stable validation platform with deterministic outputs and CI 
 | Keep v1 CLI/file-based | Fastest route to maintainable adoption | ✓ Delivered in v1.0 |
 | Treat metadata contract checks as first-class | Metadata drift breaks downstream skill reliability | ✓ Delivered in v1.0 |
 | Add dedicated CI mode with explicit policy controls | CI requires predictable pass/fail semantics | ✓ Delivered in v1.0 |
+| Prioritize incremental scan + override config in v1.1 | Highest leverage for adoption in larger repos and varied team policies | — Pending |
 
 ---
-*Last updated: 2026-02-25 after v1.0 milestone completion*
+*Last updated: 2026-02-25 after v1.1 milestone initialization*
