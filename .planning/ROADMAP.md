@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Validator Foundation** - Build full-catalog scan and baseline finding model. (completed 2026-02-25)
 - [x] **Phase 2: Metadata Integrity Rules** - Add tier-aware policy and cross-file parity checks. (completed 2026-02-25)
-- [ ] **Phase 3: Discovery and Reporting Outputs** - Generate JSON index and markdown remediation summary.
+- [x] **Phase 3: Discovery and Reporting Outputs** - Generate JSON index and markdown remediation summary. (completed 2026-02-25)
 - [ ] **Phase 4: CI Gate Hardening** - Add policy thresholds and operational reliability checks.
 
 ## Phase Details
@@ -57,12 +57,12 @@ Plans:
   1. Maintainer can generate a JSON skill index that includes tier and validation status for each skill.
   2. Output contains reliable per-tier and per-severity counts for automation.
   3. Maintainer can generate a markdown summary grouped by severity and skill with remediation guidance.
-**Plans**: 3 plans
+**Plans**: 3/3 plans complete
 
 Plans:
-- [ ] 03-01: Implement JSON index/report models and schema validation checks.
-- [ ] 03-02: Implement markdown report renderer with grouping and fix guidance.
-- [ ] 03-03: Add regression tests for output stability and deterministic ordering.
+- [x] 03-01: Implement JSON index/report models and schema validation checks.
+- [x] 03-02: Implement markdown report renderer with grouping and fix guidance.
+- [x] 03-03: Add regression tests for output stability and deterministic ordering.
 
 ### Phase 4: CI Gate Hardening
 **Goal**: Quality checks integrate safely into CI with configurable blocking thresholds and predictable exit behavior.
@@ -87,5 +87,5 @@ Phases execute in numeric order: 2 → 2.1 → 2.2 → 3 → 3.1 → 4
 |-------|----------------|--------|-----------|
 | 1. Validator Foundation | 3/3 | Complete   | 2026-02-25 |
 | 2. Metadata Integrity Rules | 3/3 | Complete   | 2026-02-25 |
-| 3. Discovery and Reporting Outputs | 0/3 | Not started | - |
+| 3. Discovery and Reporting Outputs | 3/3 | Complete   | 2026-02-25 |
 | 4. CI Gate Hardening | 0/2 | Not started | - |

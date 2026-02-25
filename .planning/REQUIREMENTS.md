@@ -21,13 +21,13 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Discovery Index
 
-- [ ] **INDEX-01**: Maintainer can generate a machine-readable JSON skill index including name, tier, and validation status.
-- [ ] **INDEX-02**: JSON index includes per-tier and per-severity summary counts for automation consumption.
+- [x] **INDEX-01**: Maintainer can generate a machine-readable JSON skill index including name, tier, and validation status.
+- [x] **INDEX-02**: JSON index includes per-tier and per-severity summary counts for automation consumption.
 
 ### Reporting
 
-- [ ] **REPT-01**: Maintainer can generate a markdown summary grouped by severity and skill directory.
-- [ ] **REPT-02**: Each reported issue includes actionable remediation guidance.
+- [x] **REPT-01**: Maintainer can generate a markdown summary grouped by severity and skill directory.
+- [x] **REPT-02**: Each reported issue includes actionable remediation guidance.
 
 ### CI Gating
 
@@ -70,10 +70,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SCAN-03 | Phase 2 | Complete |
 | META-02 | Phase 2 | Complete |
 | META-03 | Phase 2 | Complete |
-| INDEX-01 | Phase 3 | Pending |
-| INDEX-02 | Phase 3 | Pending |
-| REPT-01 | Phase 3 | Pending |
-| REPT-02 | Phase 3 | Pending |
+| INDEX-01 | Phase 3 | Complete |
+| INDEX-02 | Phase 3 | Complete |
+| REPT-01 | Phase 3 | Complete |
+| REPT-02 | Phase 3 | Complete |
 | CI-01 | Phase 4 | Pending |
 | CI-02 | Phase 4 | Pending |
 
