@@ -9,13 +9,13 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Scanning
 
-- [ ] **SCAN-01**: Maintainer can run one command to scan `skills/.system`, `skills/.curated`, and `skills/.experimental` in a single pass.
-- [ ] **SCAN-02**: Scan output classifies each finding as `valid`, `warning`, or `invalid` with file path and rule ID.
+- [x] **SCAN-01**: Maintainer can run one command to scan `skills/.system`, `skills/.curated`, and `skills/.experimental` in a single pass.
+- [x] **SCAN-02**: Scan output classifies each finding as `valid`, `warning`, or `invalid` with file path and rule ID.
 - [ ] **SCAN-03**: Validator applies tier-aware rule behavior so experimental folders can use warning-biased handling.
 
 ### Metadata Integrity
 
-- [ ] **META-01**: Validator detects missing or malformed `SKILL.md` frontmatter in skill directories.
+- [x] **META-01**: Validator detects missing or malformed `SKILL.md` frontmatter in skill directories.
 - [ ] **META-02**: Validator checks `agents/openai.yaml` metadata consistency with `SKILL.md` metadata where both exist.
 - [ ] **META-03**: Validator flags broken local references (scripts/references/assets paths) declared by skill docs/metadata.
 
@@ -64,9 +64,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SCAN-01 | Phase 1 | Pending |
-| SCAN-02 | Phase 1 | Pending |
-| META-01 | Phase 1 | Pending |
+| SCAN-01 | Phase 1 | Complete |
+| SCAN-02 | Phase 1 | Complete |
+| META-01 | Phase 1 | Complete |
 | SCAN-03 | Phase 2 | Pending |
 | META-02 | Phase 2 | Pending |
 | META-03 | Phase 2 | Pending |

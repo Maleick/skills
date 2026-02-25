@@ -12,7 +12,7 @@ This roadmap delivers a practical quality and discovery system for the skills re
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Validator Foundation** - Build full-catalog scan and baseline finding model.
+- [x] **Phase 1: Validator Foundation** - Build full-catalog scan and baseline finding model. (completed 2026-02-25)
 - [ ] **Phase 2: Metadata Integrity Rules** - Add tier-aware policy and cross-file parity checks.
 - [ ] **Phase 3: Discovery and Reporting Outputs** - Generate JSON index and markdown remediation summary.
 - [ ] **Phase 4: CI Gate Hardening** - Add policy thresholds and operational reliability checks.
@@ -27,12 +27,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   1. Maintainer can run a single command that scans `.system`, `.curated`, and `.experimental` tiers.
   2. Findings include severity, rule ID, and path for every issue.
   3. Missing or malformed `SKILL.md` frontmatter is detected and reported.
-**Plans**: 3 plans
+**Plans**: 3/3 plans complete
 
 Plans:
-- [ ] 01-01: Implement repository scanner and normalized artifact inventory.
-- [ ] 01-02: Implement findings schema, severity model, and base rule engine.
-- [ ] 01-03: Add `SKILL.md` frontmatter validation and CLI wiring.
+- [x] 01-01: Implement repository scanner and normalized artifact inventory.
+- [x] 01-02: Implement findings schema, severity model, and base rule engine.
+- [x] 01-03: Add `SKILL.md` frontmatter validation and CLI wiring.
 
 ### Phase 2: Metadata Integrity Rules
 **Goal**: Metadata contracts are checked consistently with tier-aware policies and cross-file validation.
@@ -85,7 +85,7 @@ Phases execute in numeric order: 2 → 2.1 → 2.2 → 3 → 3.1 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Validator Foundation | 0/3 | Not started | - |
+| 1. Validator Foundation | 3/3 | Complete   | 2026-02-25 |
 | 2. Metadata Integrity Rules | 0/3 | Not started | - |
 | 3. Discovery and Reporting Outputs | 0/3 | Not started | - |
 | 4. CI Gate Hardening | 0/2 | Not started | - |
