@@ -19,7 +19,7 @@
 
 ### 🚧 v1.1 Performance & Policy (In Progress)
 
-- [ ] **Phase 5: Incremental Scan Performance** - Add changed-scope scan pathways and deterministic incremental outputs.
+- [x] **Phase 5: Incremental Scan Performance** - Add changed-scope scan pathways and deterministic incremental outputs. (completed 2026-02-25)
 - [ ] **Phase 6: Override Policy Profiles** - Add repository-level override config parsing and policy resolution.
 - [ ] **Phase 7: Override-Aware Reporting and CI** - Surface effective scope/profile in outputs and preserve deterministic CI gate behavior.
 
@@ -33,12 +33,12 @@
   1. Maintainer can run changed-files mode and scan only impacted skill directories.
   2. Maintainer can specify compare range for changed-file discovery.
   3. Incremental outputs explicitly report scope and scanned counts for operator clarity.
-**Plans**: 3 plans
+**Plans**: 3/3 plans complete
 
 Plans:
-- [ ] 05-01: Implement changed-files scope collection and normalized impacted-skill filtering.
-- [ ] 05-02: Add compare-range CLI controls and deterministic incremental report metadata.
-- [ ] 05-03: Add regression tests for incremental determinism and scope correctness.
+- [x] 05-01: Implement changed-files scope collection and normalized impacted-skill filtering.
+- [x] 05-02: Add compare-range CLI controls and deterministic incremental report metadata.
+- [x] 05-03: Add regression tests for incremental determinism and scope correctness.
 
 ### Phase 6: Override Policy Profiles
 **Goal**: Teams can customize validator policy behavior through repo configuration with strict validation and fail-fast safety.
@@ -100,6 +100,6 @@ Phases execute in numeric order: 5 → 6 → 7
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 5. Incremental Scan Performance | v1.1 | 0/3 | Not started | - |
+| 5. Incremental Scan Performance | v1.1 | 3/3 | Complete | 2026-02-25 |
 | 6. Override Policy Profiles | v1.1 | 0/3 | Not started | - |
 | 7. Override-Aware Reporting and CI | v1.1 | 0/2 | Not started | - |

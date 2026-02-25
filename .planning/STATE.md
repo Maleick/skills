@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: performance-policy
 status: ready_to_plan
-last_updated: "2026-02-25T22:18:00.000Z"
+last_updated: "2026-02-25T22:20:00.000Z"
 progress:
   total_phases: 7
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 19
-  completed_plans: 11
+  completed_plans: 14
 ---
 
 # Project State
@@ -18,23 +18,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-25)
 
 **Core value:** Maintainers can run one reliable validation workflow that catches structural and metadata drift across all skills before changes are merged.
-**Current focus:** Phase 5 planning (Incremental Scan Performance)
+**Current focus:** Phase 6 planning (Override Policy Profiles)
 
 ## Current Position
 
-Phase: 5 of 7 (Incremental Scan Performance)
+Phase: 6 of 7 (Override Policy Profiles)
 Plan: 1 of 3 in current phase
 Status: Ready to plan
-Last activity: 2026-02-25 — Milestone v1.1 requirements and roadmap created
+Last activity: 2026-02-25 — Phase 5 completed (incremental scan performance)
 
-Progress: [██████░░░░] 58%
+Progress: [███████░░░] 74%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 11
-- Average duration: 18 min
-- Total execution time: 3.3 hours
+- Total plans completed: 14
+- Average duration: 17 min
+- Total execution time: 4.0 hours
 
 **By Phase:**
 
@@ -44,12 +44,15 @@ Progress: [██████░░░░] 58%
 | 2 | 3 | 48 min | 16 min |
 | 3 | 3 | 55 min | 18 min |
 | 4 | 2 | 39 min | 20 min |
+| 5 | 3 | 29 min | 10 min |
 
 ## Accumulated Context
 
 ### Decisions
 
-Decisions and outcomes are tracked in PROJECT.md and milestone archives.
+- Incremental scanning uses explicit changed-file scope filtering against canonical skill keys.
+- Compare-range selection is explicit (`--compare-range`) and requires changed-files mode.
+- Scan metadata contract is surfaced consistently in JSON, markdown, console, and CI outputs.
 
 ### Pending Todos
 
@@ -61,6 +64,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-25 16:18:00 -0600
-Stopped at: v1.1 roadmap created; ready to plan Phase 5
+Last session: 2026-02-25 16:20:00 -0600
+Stopped at: Phase 5 complete; ready to plan Phase 6
 Resume file: .planning/ROADMAP.md

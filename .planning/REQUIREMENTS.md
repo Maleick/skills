@@ -9,9 +9,9 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Incremental Performance
 
-- [ ] **PERF-01**: Maintainer can run validator in changed-files mode that scans only impacted skill directories.
-- [ ] **PERF-02**: Maintainer can select changed-file scope via explicit git compare range.
-- [ ] **PERF-03**: Incremental runs report exact scan scope and scanned-skill counts.
+- [x] **PERF-01**: Maintainer can run validator in changed-files mode that scans only impacted skill directories.
+- [x] **PERF-02**: Maintainer can select changed-file scope via explicit git compare range.
+- [x] **PERF-03**: Incremental runs report exact scan scope and scanned-skill counts.
 
 ### Policy Overrides
 
@@ -53,9 +53,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PERF-01 | Phase 5 | Pending |
-| PERF-02 | Phase 5 | Pending |
-| PERF-03 | Phase 5 | Pending |
+| PERF-01 | Phase 5 | Complete |
+| PERF-02 | Phase 5 | Complete |
+| PERF-03 | Phase 5 | Complete |
 | RULE-01 | Phase 6 | Pending |
 | RULE-02 | Phase 6 | Pending |
 | VIS-01 | Phase 7 | Pending |
@@ -68,4 +68,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-25*
-*Last updated: 2026-02-25 after milestone v1.1 roadmap creation*
+*Last updated: 2026-02-25 after Phase 5 completion*
