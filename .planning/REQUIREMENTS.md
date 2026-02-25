@@ -64,24 +64,24 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SCAN-01 | TBD | Pending |
-| SCAN-02 | TBD | Pending |
-| SCAN-03 | TBD | Pending |
-| META-01 | TBD | Pending |
-| META-02 | TBD | Pending |
-| META-03 | TBD | Pending |
-| INDEX-01 | TBD | Pending |
-| INDEX-02 | TBD | Pending |
-| REPT-01 | TBD | Pending |
-| REPT-02 | TBD | Pending |
-| CI-01 | TBD | Pending |
-| CI-02 | TBD | Pending |
+| SCAN-01 | Phase 1 | Pending |
+| SCAN-02 | Phase 1 | Pending |
+| META-01 | Phase 1 | Pending |
+| SCAN-03 | Phase 2 | Pending |
+| META-02 | Phase 2 | Pending |
+| META-03 | Phase 2 | Pending |
+| INDEX-01 | Phase 3 | Pending |
+| INDEX-02 | Phase 3 | Pending |
+| REPT-01 | Phase 3 | Pending |
+| REPT-02 | Phase 3 | Pending |
+| CI-01 | Phase 4 | Pending |
+| CI-02 | Phase 4 | Pending |
 
 **Coverage:**
 - v1 requirements: 12 total
-- Mapped to phases: 0
-- Unmapped: 12 ⚠️
+- Mapped to phases: 12
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-02-25*
-*Last updated: 2026-02-25 after initial definition*
+*Last updated: 2026-02-25 after roadmap creation*
