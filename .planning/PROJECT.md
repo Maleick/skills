@@ -2,49 +2,66 @@
 
 ## What This Is
 
-This project builds a quality and discovery layer for the Codex skills catalog in `/opt/skills`. The focus is to keep skill packages structurally consistent, easier to discover, and safer to evolve as the number of curated and experimental skills grows. It targets maintainers and operators who need fast confidence checks before merging skill changes.
+A repository quality and discovery layer for `/opt/skills` that validates skill packaging contracts, reports metadata drift, and provides deterministic machine/human outputs for maintainers and CI.
 
 ## Core Value
 
 Maintainers can run one reliable validation workflow that catches structural and metadata drift across all skills before changes are merged.
 
+## Current State
+
+- **Shipped milestone:** v1.0 MVP (2026-02-25)
+- **Delivered scope:** validator foundation, metadata integrity rules, reporting/index outputs, CI gate hardening.
+- **Runtime surface:** `python3 -m tools.skill_audit.cli` with scan, reporting, and CI gate modes.
+- **Verification status:** all phase verifications passed; milestone audit passed.
+- **Quality signal:** `41` passing tests in `tools/skill_audit/tests`.
+
 ## Requirements
 
 ### Validated
 
-(None yet — ship to validate)
+- ✓ One-command scan across `.system`, `.curated`, `.experimental` (SCAN-01)
+- ✓ Severity-classified findings with rule ID and path (SCAN-02)
+- ✓ Tier-aware policy behavior for experimental handling (SCAN-03)
+- ✓ `SKILL.md` presence/frontmatter contract validation (META-01)
+- ✓ `SKILL.md` ↔ `agents/openai.yaml` parity checks (META-02)
+- ✓ Broken local reference detection for skill metadata/docs (META-03)
+- ✓ JSON skill index generation with status and metadata fields (INDEX-01)
+- ✓ Per-tier and per-severity summary totals in JSON output (INDEX-02)
+- ✓ Markdown remediation report grouped by severity and skill (REPT-01)
+- ✓ Actionable remediation guidance for each reported issue (REPT-02)
+- ✓ Configurable CI threshold gating semantics (CI-01)
+- ✓ Tier-scoped warning-tolerant CI mode (CI-02)
 
 ### Active
 
-- [ ] Add a repository-wide validator command that classifies skill directories as valid/warning/invalid.
-- [ ] Generate a machine-readable skill index that improves discovery and status visibility.
-- [ ] Detect and report high-risk metadata inconsistencies (missing `SKILL.md`, stale `agents/openai.yaml`, broken references).
+- [ ] Define v1.1 requirements and roadmap via `$gsd-new-milestone`.
+- [ ] Decide next milestone focus (incremental scan performance, rule extensibility, or workflow UX).
 
 ### Out of Scope
 
-- Rewriting existing skill content for tone/style — not required for the quality layer.
-- Building a hosted web interface — command-line and file outputs are sufficient for v1.
-- Enforcing opinionated writing style rules beyond required packaging/contract checks.
+- Hosted dashboard UI (CLI and file artifacts are sufficient).
+- Automatic file mutation in validate mode (read-only trust model retained).
+- Style-only prose rewrites unrelated to packaging/contract integrity.
+
+## Next Milestone Goals
+
+1. Establish v1.1 milestone intent and requirement set.
+2. Prioritize either incremental changed-files scan (`PERF-01`) or repository policy override support (`RULE-01`).
+3. Define acceptance criteria before introducing autofix/trend capabilities.
 
 ## Context
 
-The repository contains a large skill catalog split across `skills/.system`, `skills/.curated`, and `skills/.experimental`, with helper scripts and metadata contracts distributed across directories. Existing quality checks are mostly manual or script-specific, which increases the chance of structural drift as the catalog grows. Initial codebase mapping already highlighted gaps such as experimental directories without `SKILL.md` and limited centralized validation gates.
-
-## Constraints
-
-- **Scope**: Focus on repository quality/discovery workflows, not product feature rewrites — keeps effort bounded.
-- **Usability**: Output must be both human-readable and machine-readable — supports maintainers and automation.
-- **Performance**: Validation pass should remain quick (target under 30 seconds) — avoids skipped checks.
-- **Compatibility**: Work with current skill directory conventions and avoid breaking existing skill execution paths.
-- **Adoption**: Integrate with git-friendly workflows so checks can be run pre-merge and in CI.
+v1.0 established a stable validation platform with deterministic outputs and CI policy controls. The immediate next step is scope selection for v1.1 rather than additional unplanned phase execution.
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Prioritize a validator + index as v1 | Highest leverage against current drift and discovery pain | — Pending |
-| Keep v1 CLI/file-based (no web UI) | Lower complexity and faster rollout | — Pending |
-| Treat metadata contract checks as first-class | Missing/stale metadata breaks downstream skill reliability | — Pending |
+| Prioritize validator + index as v1 | Highest leverage against drift/discovery pain | ✓ Delivered in v1.0 |
+| Keep v1 CLI/file-based | Fastest route to maintainable adoption | ✓ Delivered in v1.0 |
+| Treat metadata contract checks as first-class | Metadata drift breaks downstream skill reliability | ✓ Delivered in v1.0 |
+| Add dedicated CI mode with explicit policy controls | CI requires predictable pass/fail semantics | ✓ Delivered in v1.0 |
 
 ---
-*Last updated: 2026-02-25 after initialization*
+*Last updated: 2026-02-25 after v1.0 milestone completion*

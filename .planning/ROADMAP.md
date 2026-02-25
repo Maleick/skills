@@ -1,91 +1,9 @@
 # Roadmap: Skills Catalog Quality Layer
 
-## Overview
+## Completed Milestones
 
-This roadmap delivers a practical quality and discovery system for the skills repository: first establish reliable scan and findings foundations, then enforce metadata integrity, then ship machine/human reporting, and finally harden CI gating behavior for safe adoption.
+- ✅ **v1.0 MVP** — shipped 2026-02-25 (4 phases, 11 plans). Details: [v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
 
-## Phases
+## Next Milestone
 
-**Phase Numbering:**
-- Integer phases (1, 2, 3): Planned milestone work
-- Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
-
-Decimal phases appear between their surrounding integers in numeric order.
-
-- [x] **Phase 1: Validator Foundation** - Build full-catalog scan and baseline finding model. (completed 2026-02-25)
-- [x] **Phase 2: Metadata Integrity Rules** - Add tier-aware policy and cross-file parity checks. (completed 2026-02-25)
-- [x] **Phase 3: Discovery and Reporting Outputs** - Generate JSON index and markdown remediation summary. (completed 2026-02-25)
-- [x] **Phase 4: CI Gate Hardening** - Add policy thresholds and operational reliability checks. (completed 2026-02-25)
-
-## Phase Details
-
-### Phase 1: Validator Foundation
-**Goal**: Maintainers can run one baseline validator command across all skill tiers and receive structured severity findings.
-**Depends on**: Nothing (first phase)
-**Requirements**: SCAN-01, SCAN-02, META-01
-**Success Criteria** (what must be TRUE):
-  1. Maintainer can run a single command that scans `.system`, `.curated`, and `.experimental` tiers.
-  2. Findings include severity, rule ID, and path for every issue.
-  3. Missing or malformed `SKILL.md` frontmatter is detected and reported.
-**Plans**: 3/3 plans complete
-
-Plans:
-- [x] 01-01: Implement repository scanner and normalized artifact inventory.
-- [x] 01-02: Implement findings schema, severity model, and base rule engine.
-- [x] 01-03: Add `SKILL.md` frontmatter validation and CLI wiring.
-
-### Phase 2: Metadata Integrity Rules
-**Goal**: Metadata contracts are checked consistently with tier-aware policies and cross-file validation.
-**Depends on**: Phase 1
-**Requirements**: SCAN-03, META-02, META-03
-**Success Criteria** (what must be TRUE):
-  1. Experimental tier issues can be reported with warning-biased policy without masking true invalid states.
-  2. `SKILL.md` and `agents/openai.yaml` mismatches are detected with actionable remediation.
-  3. Broken local references to scripts/references/assets are detected and localized.
-**Plans**: 3/3 plans complete
-
-Plans:
-- [x] 02-01: Implement tier policy profile resolution and severity override behavior.
-- [x] 02-02: Implement `SKILL.md` ↔ `openai.yaml` parity checks.
-- [x] 02-03: Implement local reference-path validation rules and tests.
-
-### Phase 3: Discovery and Reporting Outputs
-**Goal**: Maintainers and CI systems receive stable machine and human outputs from one canonical findings model.
-**Depends on**: Phase 2
-**Requirements**: INDEX-01, INDEX-02, REPT-01, REPT-02
-**Success Criteria** (what must be TRUE):
-  1. Maintainer can generate a JSON skill index that includes tier and validation status for each skill.
-  2. Output contains reliable per-tier and per-severity counts for automation.
-  3. Maintainer can generate a markdown summary grouped by severity and skill with remediation guidance.
-**Plans**: 3/3 plans complete
-
-Plans:
-- [x] 03-01: Implement JSON index/report models and schema validation checks.
-- [x] 03-02: Implement markdown report renderer with grouping and fix guidance.
-- [x] 03-03: Add regression tests for output stability and deterministic ordering.
-
-### Phase 4: CI Gate Hardening
-**Goal**: Quality checks integrate safely into CI with configurable blocking thresholds and predictable exit behavior.
-**Depends on**: Phase 3
-**Requirements**: CI-01, CI-02
-**Success Criteria** (what must be TRUE):
-  1. CI mode fails on invalid findings by default using stable exit behavior.
-  2. Maintainers can run warning-tolerant mode for selected contexts (for example experimental-focused checks).
-  3. Gate behavior is documented and validated with command-level tests.
-**Plans**: 2/2 plans complete
-
-Plans:
-- [x] 04-01: Implement threshold-based exit policy and CI-focused flags.
-- [x] 04-02: Add CI usage examples and policy-mode verification tests.
-
-## Progress
-
-**Execution Order:**
-Phases execute in numeric order: 2 → 2.1 → 2.2 → 3 → 3.1 → 4
-
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1. Validator Foundation | 3/3 | Complete   | 2026-02-25 |
-| 2. Metadata Integrity Rules | 3/3 | Complete   | 2026-02-25 |
-| 3. Discovery and Reporting Outputs | 3/3 | Complete   | 2026-02-25 |
-| 4. CI Gate Hardening | 2/2 | Complete | 2026-02-25 |
+No active phases are defined yet. Start the next cycle with `$gsd-new-milestone`.
