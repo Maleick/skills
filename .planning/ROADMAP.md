@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Validator Foundation** - Build full-catalog scan and baseline finding model. (completed 2026-02-25)
 - [x] **Phase 2: Metadata Integrity Rules** - Add tier-aware policy and cross-file parity checks. (completed 2026-02-25)
 - [x] **Phase 3: Discovery and Reporting Outputs** - Generate JSON index and markdown remediation summary. (completed 2026-02-25)
-- [ ] **Phase 4: CI Gate Hardening** - Add policy thresholds and operational reliability checks.
+- [x] **Phase 4: CI Gate Hardening** - Add policy thresholds and operational reliability checks. (completed 2026-02-25)
 
 ## Phase Details
 
@@ -72,11 +72,11 @@ Plans:
   1. CI mode fails on invalid findings by default using stable exit behavior.
   2. Maintainers can run warning-tolerant mode for selected contexts (for example experimental-focused checks).
   3. Gate behavior is documented and validated with command-level tests.
-**Plans**: 2 plans
+**Plans**: 2/2 plans complete
 
 Plans:
-- [ ] 04-01: Implement threshold-based exit policy and CI-focused flags.
-- [ ] 04-02: Add CI usage examples and policy-mode verification tests.
+- [x] 04-01: Implement threshold-based exit policy and CI-focused flags.
+- [x] 04-02: Add CI usage examples and policy-mode verification tests.
 
 ## Progress
 
@@ -88,4 +88,4 @@ Phases execute in numeric order: 2 → 2.1 → 2.2 → 3 → 3.1 → 4
 | 1. Validator Foundation | 3/3 | Complete   | 2026-02-25 |
 | 2. Metadata Integrity Rules | 3/3 | Complete   | 2026-02-25 |
 | 3. Discovery and Reporting Outputs | 3/3 | Complete   | 2026-02-25 |
-| 4. CI Gate Hardening | 0/2 | Not started | - |
+| 4. CI Gate Hardening | 2/2 | Complete | 2026-02-25 |

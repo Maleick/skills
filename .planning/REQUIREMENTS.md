@@ -31,8 +31,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### CI Gating
 
-- [ ] **CI-01**: Validator supports configurable exit thresholds (default: fail on invalid findings).
-- [ ] **CI-02**: CI mode supports warning-tolerant operation for selected contexts (for example experimental-only checks).
+- [x] **CI-01**: Validator supports configurable exit thresholds (default: fail on invalid findings).
+- [x] **CI-02**: CI mode supports warning-tolerant operation for selected contexts (for example experimental-only checks).
 
 ## v2 Requirements
 
@@ -74,8 +74,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | INDEX-02 | Phase 3 | Complete |
 | REPT-01 | Phase 3 | Complete |
 | REPT-02 | Phase 3 | Complete |
-| CI-01 | Phase 4 | Pending |
-| CI-02 | Phase 4 | Pending |
+| CI-01 | Phase 4 | Complete |
+| CI-02 | Phase 4 | Complete |
 
 **Coverage:**
 - v1 requirements: 12 total
@@ -84,4 +84,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-25*
-*Last updated: 2026-02-25 after roadmap creation*
+*Last updated: 2026-02-25 after phase 4 completion*
