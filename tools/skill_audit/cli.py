@@ -8,12 +8,26 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
+from .findings import Finding
 from .indexing import build_skill_index
 from .markdown_report import render_markdown_report
-from .policy import apply_tier_policy
+from .policy import (
+    TIER_CURATED,
+    TIER_EXPERIMENTAL,
+    TIER_SYSTEM,
+    apply_tier_policy,
+    tier_from_path,
+)
 from .reporting import render_report, sort_findings, summarize_findings
 from .rules import validate_local_references, validate_metadata_parity, validate_skill_md
 from .scanner import discover_skill_dirs
+
+SEVERITY_RANK: dict[str, int] = {"valid": 0, "warning": 1, "invalid": 2}
+ALLOWED_GATE_TIERS: tuple[str, ...] = (
+    TIER_SYSTEM,
+    TIER_CURATED,
+    TIER_EXPERIMENTAL,
+)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -53,6 +67,33 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Allow overwriting existing output files.",
     )
+    parser.add_argument(
+        "--ci",
+        action="store_true",
+        help="Enable CI gating mode with compact gate-oriented output.",
+    )
+    parser.add_argument(
+        "--max-severity",
+        choices=("valid", "warning", "invalid"),
+        default=None,
+        help=(
+            "Highest allowed severity in CI mode. "
+            "Default in CI mode is 'warning' (fail on invalid findings only)."
+        ),
+    )
+    parser.add_argument(
+        "--tiers",
+        default=None,
+        help=(
+            "Comma-separated gate scope tiers for CI mode: "
+            "system,curated,experimental."
+        ),
+    )
+    parser.add_argument(
+        "--verbose-ci",
+        action="store_true",
+        help="Show full in-scope finding details in CI mode.",
+    )
     return parser
 
 
@@ -63,10 +104,127 @@ def _write_text(path: Path, content: str, force_overwrite: bool) -> None:
     path.write_text(content, encoding="utf-8")
 
 
+def _parse_gate_tiers(raw_tiers: str | None) -> tuple[str, ...] | None:
+    if raw_tiers is None:
+        return None
+    candidates = [part.strip().lower() for part in raw_tiers.split(",")]
+    if not candidates or any(not item for item in candidates):
+        raise ValueError(
+            "Invalid --tiers value. Use a comma-separated list of: "
+            "system,curated,experimental."
+        )
+
+    unique = set(candidates)
+    unknown = sorted(unique - set(ALLOWED_GATE_TIERS))
+    if unknown:
+        raise ValueError(
+            f"Unknown tier value(s) in --tiers: {', '.join(unknown)}. "
+            "Allowed values: system,curated,experimental."
+        )
+    return tuple(tier for tier in ALLOWED_GATE_TIERS if tier in unique)
+
+
+def _validate_ci_config(
+    *,
+    ci_mode: bool,
+    max_severity: str | None,
+    max_severity_explicit: bool,
+    tiers: tuple[str, ...] | None,
+    verbose_ci: bool,
+) -> str | None:
+    if verbose_ci and not ci_mode:
+        raise ValueError("--verbose-ci requires --ci.")
+
+    if max_severity is not None and not ci_mode:
+        raise ValueError("--max-severity requires --ci.")
+
+    if tiers is not None and not ci_mode:
+        raise ValueError("--tiers requires --ci.")
+
+    if not ci_mode:
+        return None
+
+    resolved = max_severity or "warning"
+    if max_severity_explicit and resolved == "warning" and tiers is None:
+        raise ValueError(
+            "Warning-tolerant CI mode requires explicit --tiers scope."
+        )
+
+    return resolved
+
+
+def _filter_findings_by_tier(
+    findings: list[Finding], tiers: tuple[str, ...] | None
+) -> list[Finding]:
+    if tiers is None:
+        return findings
+    allowed = set(tiers)
+    return [finding for finding in findings if tier_from_path(finding.path) in allowed]
+
+
+def _is_gate_failure(findings: list[Finding], max_severity: str) -> bool:
+    threshold = SEVERITY_RANK[max_severity]
+    return any(SEVERITY_RANK[finding.severity] > threshold for finding in findings)
+
+
+def _render_ci_report(
+    *,
+    in_scope_findings: list[Finding],
+    scanned_skill_count: int,
+    max_severity: str,
+    tiers: tuple[str, ...] | None,
+    verbose: bool,
+) -> str:
+    in_scope_totals = summarize_findings(in_scope_findings)
+    policy_failed = _is_gate_failure(in_scope_findings, max_severity)
+    scope_label = "all" if tiers is None else ",".join(tiers)
+    result_label = "FAIL" if policy_failed else "PASS"
+    lines = [
+        "Skill Audit CI Gate",
+        f"Result: {result_label}",
+        f"Threshold: {max_severity}",
+        f"Scope tiers: {scope_label}",
+        f"Scanned skill directories: {scanned_skill_count}",
+        (
+            "In-scope findings: "
+            f"{len(in_scope_findings)} "
+            f"(valid={in_scope_totals['valid']}, "
+            f"warning={in_scope_totals['warning']}, "
+            f"invalid={in_scope_totals['invalid']})"
+        ),
+    ]
+
+    if verbose:
+        lines.append("")
+        lines.append("In-scope details:")
+        if in_scope_findings:
+            for finding in in_scope_findings:
+                lines.append(
+                    f"- [{finding.severity}] {finding.id} `{finding.path}`: "
+                    f"{finding.message} | Fix: {finding.suggested_fix}"
+                )
+        else:
+            lines.append("- None")
+
+    return "\n".join(lines)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     repo_root = Path(args.repo_root).resolve()
+    try:
+        parsed_tiers = _parse_gate_tiers(args.tiers)
+        max_severity = _validate_ci_config(
+            ci_mode=args.ci,
+            max_severity=args.max_severity,
+            max_severity_explicit=args.max_severity is not None,
+            tiers=parsed_tiers,
+            verbose_ci=args.verbose_ci,
+        )
+    except ValueError as exc:
+        print(f"runtime-error: {exc}", file=sys.stderr)
+        return 2
 
     try:
         skill_dirs = discover_skill_dirs(repo_root)
@@ -109,6 +267,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         except OSError as exc:
             print(f"runtime-error: {exc}", file=sys.stderr)
             return 2
+
+    if args.ci and max_severity is not None:
+        in_scope_findings = _filter_findings_by_tier(ordered, parsed_tiers)
+        policy_failed = _is_gate_failure(in_scope_findings, max_severity=max_severity)
+        if args.json:
+            print(json.dumps(index_payload, indent=2))
+        else:
+            print(
+                _render_ci_report(
+                    in_scope_findings=in_scope_findings,
+                    scanned_skill_count=len(skill_dirs),
+                    max_severity=max_severity,
+                    tiers=parsed_tiers,
+                    verbose=args.verbose_ci,
+                )
+            )
+        return 1 if policy_failed else 0
 
     if args.json:
         print(json.dumps(index_payload, indent=2))

@@ -136,3 +136,16 @@ def test_output_dir_uses_stable_names(tmp_path: Path) -> None:
     assert result.returncode == 0
     assert (output_dir / "skill-index.json").exists()
     assert (output_dir / "skill-remediation.md").exists()
+
+
+def test_ci_mode_coexists_with_output_flags(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _create_valid_repo(repo_root)
+    output_dir = tmp_path / "ci-out"
+
+    result = _run_cli(repo_root, ["--ci", "--output-dir", str(output_dir)])
+    assert result.returncode == 0
+    assert "Skill Audit CI Gate" in result.stdout
+    assert "Result: PASS" in result.stdout
+    assert (output_dir / "skill-index.json").exists()
+    assert (output_dir / "skill-remediation.md").exists()

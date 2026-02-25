@@ -35,6 +35,38 @@ $skill-installer install https://github.com/openai/skills/tree/main/skills/.expe
 
 After installing a skill, restart Codex to pick up new skills.
 
+## Skill audit CI gate
+
+The repository includes a validator CLI with CI-focused gating mode:
+
+```bash
+python3 -m tools.skill_audit.cli --ci
+```
+
+Common CI policy modes:
+
+```bash
+# Strict mode: fail on warning and invalid
+python3 -m tools.skill_audit.cli --ci --max-severity valid
+
+# Warning-tolerant, explicit scope (experimental only)
+python3 -m tools.skill_audit.cli --ci --tiers experimental --max-severity warning
+
+# Scoped strict gate for curated skills
+python3 -m tools.skill_audit.cli --ci --tiers curated --max-severity valid
+```
+
+CI artifact emission example:
+
+```bash
+python3 -m tools.skill_audit.cli \
+  --ci \
+  --json-out .artifacts/skill-index.json \
+  --markdown-out .artifacts/skill-remediation.md
+```
+
+Use `--verbose-ci` to include full finding details in CI mode.
+
 ## License
 
 The license of an individual skill can be found directly inside the skill's directory inside the `LICENSE.txt` file.
