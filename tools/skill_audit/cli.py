@@ -8,8 +8,9 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
+from .policy import apply_tier_policy
 from .reporting import render_report, sort_findings, summarize_findings
-from .rules import validate_skill_md
+from .rules import validate_local_references, validate_metadata_parity, validate_skill_md
 from .scanner import discover_skill_dirs
 
 
@@ -43,11 +44,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         findings = []
         for skill_dir in skill_dirs:
             findings.extend(validate_skill_md(skill_dir, repo_root))
+            findings.extend(validate_metadata_parity(skill_dir, repo_root))
+            findings.extend(validate_local_references(skill_dir, repo_root))
     except OSError as exc:
         print(f"runtime-error: {exc}", file=sys.stderr)
         return 2
 
-    ordered = sort_findings(findings)
+    ordered = sort_findings(apply_tier_policy(findings))
     totals = summarize_findings(ordered)
 
     if args.json:

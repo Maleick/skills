@@ -1,0 +1,3 @@
+name: refs-invalid
+description: Metadata with local reference values.
+prompt_template: references/also-missing.md
