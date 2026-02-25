@@ -15,8 +15,8 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Policy Overrides
 
-- [ ] **RULE-01**: Maintainer can define repository override policy configuration without modifying validator source code.
-- [ ] **RULE-02**: Validator validates override config schema and fails with actionable runtime/config errors when invalid.
+- [x] **RULE-01**: Maintainer can define repository override policy configuration without modifying validator source code.
+- [x] **RULE-02**: Validator validates override config schema and fails with actionable runtime/config errors when invalid.
 
 ### Reporting and CI Clarity
 
@@ -56,8 +56,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PERF-01 | Phase 5 | Complete |
 | PERF-02 | Phase 5 | Complete |
 | PERF-03 | Phase 5 | Complete |
-| RULE-01 | Phase 6 | Pending |
-| RULE-02 | Phase 6 | Pending |
+| RULE-01 | Phase 6 | Complete |
+| RULE-02 | Phase 6 | Complete |
 | VIS-01 | Phase 7 | Pending |
 | CI-03 | Phase 7 | Pending |
 
@@ -68,4 +68,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-25*
-*Last updated: 2026-02-25 after Phase 5 completion*
+*Last updated: 2026-02-25 after Phase 6 completion*

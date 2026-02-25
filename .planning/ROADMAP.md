@@ -20,7 +20,7 @@
 ### 🚧 v1.1 Performance & Policy (In Progress)
 
 - [x] **Phase 5: Incremental Scan Performance** - Add changed-scope scan pathways and deterministic incremental outputs. (completed 2026-02-25)
-- [ ] **Phase 6: Override Policy Profiles** - Add repository-level override config parsing and policy resolution.
+- [x] **Phase 6: Override Policy Profiles** - Add repository-level override config parsing and policy resolution. (completed 2026-02-25)
 - [ ] **Phase 7: Override-Aware Reporting and CI** - Surface effective scope/profile in outputs and preserve deterministic CI gate behavior.
 
 ## Phase Details
@@ -48,12 +48,12 @@ Plans:
   1. Maintainer can define override policy in repository config with documented schema.
   2. Invalid or malformed override configuration fails with actionable runtime/config errors.
   3. Effective policy resolution is deterministic and test-covered across tiers/rules.
-**Plans**: 3 plans
+**Plans**: 3/3 plans complete
 
 Plans:
-- [ ] 06-01: Implement override config schema and parser module.
-- [ ] 06-02: Integrate override policy resolution into scan/gate pipeline.
-- [ ] 06-03: Add validation and error-matrix tests for override config failure paths.
+- [x] 06-01: Implement override config schema and parser module.
+- [x] 06-02: Integrate override policy resolution into scan/gate pipeline.
+- [x] 06-03: Add validation and error-matrix tests for override config failure paths.
 
 ### Phase 7: Override-Aware Reporting and CI
 **Goal**: Outputs and CI behavior remain explicit and trustworthy under incremental scope plus overrides.
@@ -101,5 +101,5 @@ Phases execute in numeric order: 5 → 6 → 7
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 5. Incremental Scan Performance | v1.1 | 3/3 | Complete | 2026-02-25 |
-| 6. Override Policy Profiles | v1.1 | 0/3 | Not started | - |
+| 6. Override Policy Profiles | v1.1 | 3/3 | Complete | 2026-02-25 |
 | 7. Override-Aware Reporting and CI | v1.1 | 0/2 | Not started | - |
