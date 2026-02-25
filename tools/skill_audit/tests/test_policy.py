@@ -1,4 +1,5 @@
 from tools.skill_audit.findings import Finding
+from tools.skill_audit.override_config import OverrideProfile
 from tools.skill_audit.policy import apply_tier_policy, tier_from_path, translate_finding_severity
 
 
@@ -53,3 +54,57 @@ def test_system_and_curated_tiers_remain_strict() -> None:
     translated = apply_tier_policy(strict_findings)
     assert translated[0].severity == "invalid"
     assert translated[1].severity == "invalid"
+
+
+def test_override_precedence_rule_tier_beats_rule_and_tier() -> None:
+    finding = Finding(
+        id="META-110",
+        severity="invalid",
+        path="skills/.experimental/example/SKILL.md",
+        message="mismatch",
+        suggested_fix="fix",
+    )
+    profile = OverrideProfile(
+        tier={"experimental": "invalid"},
+        rule={"META-110": "valid"},
+        rule_tier={("experimental", "META-110"): "warning"},
+    )
+
+    translated = translate_finding_severity(finding, override_profile=profile)
+    assert translated.severity == "warning"
+
+
+def test_override_precedence_rule_beats_tier() -> None:
+    finding = Finding(
+        id="META-001",
+        severity="invalid",
+        path="skills/.experimental/example/SKILL.md",
+        message="missing SKILL.md",
+        suggested_fix="fix",
+    )
+    profile = OverrideProfile(
+        tier={"experimental": "warning"},
+        rule={"META-001": "valid"},
+        rule_tier={},
+    )
+
+    translated = translate_finding_severity(finding, override_profile=profile)
+    assert translated.severity == "valid"
+
+
+def test_override_precedence_tier_beats_base_default() -> None:
+    finding = Finding(
+        id="META-110",
+        severity="invalid",
+        path="skills/.experimental/example/SKILL.md",
+        message="mismatch",
+        suggested_fix="fix",
+    )
+    profile = OverrideProfile(
+        tier={"experimental": "invalid"},
+        rule={},
+        rule_tier={},
+    )
+
+    translated = translate_finding_severity(finding, override_profile=profile)
+    assert translated.severity == "invalid"

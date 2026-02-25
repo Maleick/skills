@@ -11,6 +11,7 @@ from typing import Sequence
 from .findings import Finding
 from .indexing import build_skill_index
 from .markdown_report import render_markdown_report
+from .override_config import OverrideConfigError, load_override_profile
 from .policy import (
     TIER_CURATED,
     TIER_EXPERIMENTAL,
@@ -295,6 +296,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
 
     try:
+        override_profile = load_override_profile(repo_root)
         all_skill_dirs = discover_skill_dirs(repo_root)
         changed_files: list[str] = []
         if args.changed_files:
@@ -325,11 +327,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             findings.extend(validate_skill_md(skill_dir, repo_root))
             findings.extend(validate_metadata_parity(skill_dir, repo_root))
             findings.extend(validate_local_references(skill_dir, repo_root))
-    except (OSError, RuntimeError) as exc:
+    except (OSError, RuntimeError, OverrideConfigError) as exc:
         print(f"runtime-error: {exc}", file=sys.stderr)
         return 2
 
-    ordered = sort_findings(apply_tier_policy(findings))
+    ordered = sort_findings(apply_tier_policy(findings, override_profile=override_profile))
     index_payload = build_skill_index(
         skill_dirs=skill_dirs,
         findings=ordered,

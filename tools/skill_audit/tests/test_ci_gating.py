@@ -50,6 +50,10 @@ def _run_cli(repo_root: Path, extra_args: list[str]) -> subprocess.CompletedProc
     )
 
 
+def _write_override(repo_root: Path, content: str) -> None:
+    (repo_root / ".skill-audit-overrides.yaml").write_text(content, encoding="utf-8")
+
+
 def test_ci_default_fails_when_invalid_exists(tmp_path: Path) -> None:
     repo_root = tmp_path / "repo"
     _write_skill(
@@ -209,3 +213,45 @@ def test_non_ci_behavior_remains_unchanged(tmp_path: Path) -> None:
     result = _run_cli(repo_root, [])
     assert result.returncode == 1
     assert "Skill Audit Report" in result.stdout
+
+
+def test_ci_override_can_escalate_warning_to_invalid(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _write_skill(
+        repo_root,
+        tier="experimental",
+        name="experimental-warning",
+        skill_name="experimental-warning",
+        openai_name="different-name",
+    )
+    _write_override(
+        repo_root,
+        (
+            "version: 1\n"
+            "severity_overrides:\n"
+            "  rule_tier:\n"
+            "    experimental:\n"
+            "      META-110: invalid\n"
+        ),
+    )
+
+    result = _run_cli(repo_root, ["--ci"])
+    assert result.returncode == 1
+    assert "Result: FAIL" in result.stdout
+    assert "invalid=1" in result.stdout
+
+
+def test_ci_invalid_override_file_returns_config_error(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _write_skill(
+        repo_root,
+        tier="curated",
+        name="curated-valid",
+        skill_name="curated-valid",
+        openai_name="curated-valid",
+    )
+    _write_override(repo_root, "version: 1\nseverity_overrides: [\n")
+
+    result = _run_cli(repo_root, ["--ci"])
+    assert result.returncode == 2
+    assert "runtime-error:" in result.stderr
