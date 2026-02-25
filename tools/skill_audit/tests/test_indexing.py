@@ -50,7 +50,11 @@ def test_build_skill_index_core_contract_and_status(tmp_path: Path) -> None:
 
     payload = build_skill_index([skill_a, skill_b], findings, repo_root)
     assert payload["skill_count"] == 2
+    assert payload["scan"]["mode"] == "full"
+    assert payload["scan"]["scanned_skill_count"] == 2
+    assert payload["scan"]["total_skill_count"] == 2
     assert payload["summary"]["global"]["finding_count"] == 3
+    assert payload["summary"]["global"]["total_skill_count"] == 2
     assert payload["summary"]["severity_totals"] == {"valid": 1, "warning": 1, "invalid": 1}
 
     alpha = next(skill for skill in payload["skills"] if skill["path"] == "skills/.curated/alpha")
@@ -95,3 +99,24 @@ def test_build_skill_index_is_deterministic(tmp_path: Path) -> None:
     first = build_skill_index([skill_b, skill_a], findings, repo_root)
     second = build_skill_index([skill_a, skill_b], findings, repo_root)
     assert first == second
+
+
+def test_build_skill_index_uses_provided_scan_metadata(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    skill_a = _create_skill(repo_root, "skills/.system/one", "one", "desc one")
+
+    findings: list[Finding] = []
+    scan_metadata = {
+        "mode": "changed-files",
+        "compare_range": "HEAD~1..HEAD",
+        "changed_files": ["skills/.system/one/SKILL.md"],
+        "changed_file_count": 1,
+        "impacted_skill_count": 1,
+        "scanned_skill_count": 1,
+        "total_skill_count": 3,
+        "scanned_skills": ["skills/.system/one"],
+    }
+
+    payload = build_skill_index([skill_a], findings, repo_root, scan_metadata=scan_metadata)
+    assert payload["scan"] == scan_metadata
+    assert payload["summary"]["global"]["total_skill_count"] == 3
