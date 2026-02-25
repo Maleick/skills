@@ -20,7 +20,12 @@ from .policy import (
 )
 from .reporting import render_report, sort_findings, summarize_findings
 from .rules import validate_local_references, validate_metadata_parity, validate_skill_md
-from .scanner import discover_skill_dirs
+from .scanner import (
+    discover_changed_files,
+    discover_skill_dirs,
+    filter_impacted_skill_dirs,
+    impacted_skill_keys,
+)
 
 SEVERITY_RANK: dict[str, int] = {"valid": 0, "warning": 1, "invalid": 2}
 ALLOWED_GATE_TIERS: tuple[str, ...] = (
@@ -41,6 +46,22 @@ def _build_parser() -> argparse.ArgumentParser:
         "--repo-root",
         default=".",
         help="Repository root directory. Defaults to current working directory.",
+    )
+    parser.add_argument(
+        "--changed-files",
+        action="store_true",
+        help=(
+            "Scan only skill directories impacted by changed files "
+            "(unstaged + staged + untracked by default)."
+        ),
+    )
+    parser.add_argument(
+        "--compare-range",
+        default=None,
+        help=(
+            "Git compare range for changed-file discovery (for example "
+            "`origin/main...HEAD`). Requires `--changed-files`."
+        ),
     )
     parser.add_argument(
         "--json",
@@ -153,6 +174,11 @@ def _validate_ci_config(
     return resolved
 
 
+def _validate_scan_config(changed_files_mode: bool, compare_range: str | None) -> None:
+    if compare_range is not None and not changed_files_mode:
+        raise ValueError("--compare-range requires --changed-files.")
+
+
 def _filter_findings_by_tier(
     findings: list[Finding], tiers: tuple[str, ...] | None
 ) -> list[Finding]:
@@ -167,10 +193,40 @@ def _is_gate_failure(findings: list[Finding], max_severity: str) -> bool:
     return any(SEVERITY_RANK[finding.severity] > threshold for finding in findings)
 
 
+def _build_scan_metadata(
+    *,
+    mode: str,
+    compare_range: str | None,
+    changed_files: list[str],
+    impacted_skill_count: int,
+    scanned_skill_dirs: list[Path],
+    repo_root: Path,
+    total_skill_count: int,
+) -> dict[str, object]:
+    root = repo_root.resolve()
+    scanned_skills: list[str] = []
+    for skill_dir in scanned_skill_dirs:
+        try:
+            scanned_skills.append(skill_dir.resolve().relative_to(root).as_posix())
+        except ValueError:
+            scanned_skills.append(skill_dir.as_posix())
+    scanned_skills.sort()
+    return {
+        "mode": mode,
+        "compare_range": compare_range,
+        "changed_files": changed_files,
+        "changed_file_count": len(changed_files),
+        "impacted_skill_count": impacted_skill_count,
+        "scanned_skill_count": len(scanned_skill_dirs),
+        "total_skill_count": total_skill_count,
+        "scanned_skills": scanned_skills,
+    }
+
+
 def _render_ci_report(
     *,
     in_scope_findings: list[Finding],
-    scanned_skill_count: int,
+    scan_metadata: dict[str, object],
     max_severity: str,
     tiers: tuple[str, ...] | None,
     verbose: bool,
@@ -184,7 +240,18 @@ def _render_ci_report(
         f"Result: {result_label}",
         f"Threshold: {max_severity}",
         f"Scope tiers: {scope_label}",
-        f"Scanned skill directories: {scanned_skill_count}",
+        f"Scan mode: {scan_metadata['mode']}",
+        (
+            f"Compare range: {scan_metadata['compare_range']}"
+            if scan_metadata["compare_range"] is not None
+            else "Compare range: working-tree (unstaged + staged + untracked)"
+        ),
+        f"Changed files considered: {scan_metadata['changed_file_count']}",
+        (
+            "Scanned skill directories: "
+            f"{scan_metadata['scanned_skill_count']} "
+            f"of {scan_metadata['total_skill_count']}"
+        ),
         (
             "In-scope findings: "
             f"{len(in_scope_findings)} "
@@ -222,23 +289,53 @@ def main(argv: Sequence[str] | None = None) -> int:
             tiers=parsed_tiers,
             verbose_ci=args.verbose_ci,
         )
+        _validate_scan_config(args.changed_files, args.compare_range)
     except ValueError as exc:
         print(f"runtime-error: {exc}", file=sys.stderr)
         return 2
 
     try:
-        skill_dirs = discover_skill_dirs(repo_root)
+        all_skill_dirs = discover_skill_dirs(repo_root)
+        changed_files: list[str] = []
+        if args.changed_files:
+            changed_files = discover_changed_files(repo_root, compare_range=args.compare_range)
+            skill_dirs = filter_impacted_skill_dirs(
+                all_skill_dirs,
+                repo_root,
+                changed_files,
+            )
+            scan_mode = "changed-files"
+            impacted_skill_count = len(impacted_skill_keys(changed_files))
+        else:
+            skill_dirs = all_skill_dirs
+            scan_mode = "full"
+            impacted_skill_count = len(skill_dirs)
+
+        scan_metadata = _build_scan_metadata(
+            mode=scan_mode,
+            compare_range=args.compare_range,
+            changed_files=changed_files,
+            impacted_skill_count=impacted_skill_count,
+            scanned_skill_dirs=skill_dirs,
+            repo_root=repo_root,
+            total_skill_count=len(all_skill_dirs),
+        )
         findings = []
         for skill_dir in skill_dirs:
             findings.extend(validate_skill_md(skill_dir, repo_root))
             findings.extend(validate_metadata_parity(skill_dir, repo_root))
             findings.extend(validate_local_references(skill_dir, repo_root))
-    except OSError as exc:
+    except (OSError, RuntimeError) as exc:
         print(f"runtime-error: {exc}", file=sys.stderr)
         return 2
 
     ordered = sort_findings(apply_tier_policy(findings))
-    index_payload = build_skill_index(skill_dirs=skill_dirs, findings=ordered, repo_root=repo_root)
+    index_payload = build_skill_index(
+        skill_dirs=skill_dirs,
+        findings=ordered,
+        repo_root=repo_root,
+        scan_metadata=scan_metadata,
+    )
     markdown_payload = render_markdown_report(index_payload)
     totals = summarize_findings(ordered)
 
@@ -277,7 +374,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(
                 _render_ci_report(
                     in_scope_findings=in_scope_findings,
-                    scanned_skill_count=len(skill_dirs),
+                    scan_metadata=scan_metadata,
                     max_severity=max_severity,
                     tiers=parsed_tiers,
                     verbose=args.verbose_ci,
@@ -288,7 +385,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.json:
         print(json.dumps(index_payload, indent=2))
     else:
-        print(render_report(ordered, scanned_skill_count=len(skill_dirs)))
+        print(
+            render_report(
+                ordered,
+                scanned_skill_count=len(skill_dirs),
+                scan_metadata=scan_metadata,
+            )
+        )
 
     return 1 if totals["invalid"] > 0 else 0
 
