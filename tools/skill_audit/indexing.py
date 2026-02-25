@@ -108,7 +108,25 @@ def _status_from_counts(severity_counts: dict[str, int]) -> str:
     return "valid"
 
 
-def build_skill_index(skill_dirs: list[Path], findings: list[Finding], repo_root: Path) -> dict[str, Any]:
+def _default_scan_metadata(skill_count: int) -> dict[str, Any]:
+    return {
+        "mode": "full",
+        "compare_range": None,
+        "changed_file_count": 0,
+        "changed_files": [],
+        "impacted_skill_count": skill_count,
+        "scanned_skill_count": skill_count,
+        "total_skill_count": skill_count,
+        "scanned_skills": [],
+    }
+
+
+def build_skill_index(
+    skill_dirs: list[Path],
+    findings: list[Finding],
+    repo_root: Path,
+    scan_metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Build deterministic JSON index payload from findings and scanned skill dirs."""
     entries_by_key: dict[str, dict[str, Any]] = {}
 
@@ -175,13 +193,23 @@ def build_skill_index(skill_dirs: list[Path], findings: list[Finding], repo_root
         "global": {
             "skill_count": len(ordered_entries),
             "finding_count": len(findings),
+            "total_skill_count": (
+                scan_metadata.get("total_skill_count")
+                if scan_metadata is not None
+                else len(ordered_entries)
+            ),
         },
         "severity_totals": severity_totals,
         "tier_totals": tier_totals,
     }
 
+    resolved_scan = _default_scan_metadata(len(ordered_entries))
+    if scan_metadata is not None:
+        resolved_scan.update(scan_metadata)
+
     return {
         "skill_count": len(ordered_entries),
+        "scan": resolved_scan,
         "summary": summary,
         "skills": ordered_entries,
     }

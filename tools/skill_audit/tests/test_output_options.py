@@ -1,6 +1,7 @@
 import subprocess
 import sys
 from pathlib import Path
+import json
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -27,6 +28,45 @@ def _create_valid_repo(repo_root: Path) -> None:
         "name: demo-skill\ndescription: Demo skill fixture.\n",
         encoding="utf-8",
     )
+
+
+def _create_valid_skill(repo_root: Path, rel_skill_dir: str, skill_name: str) -> None:
+    skill_dir = repo_root / rel_skill_dir
+    (skill_dir / "agents").mkdir(parents=True, exist_ok=True)
+    (skill_dir / "references").mkdir(parents=True, exist_ok=True)
+    (skill_dir / "references/guide.md").write_text("# Guide\n", encoding="utf-8")
+    (skill_dir / "SKILL.md").write_text(
+        (
+            "---\n"
+            f"name: {skill_name}\n"
+            "description: Demo skill fixture.\n"
+            "---\n\n"
+            "# Demo Skill\n\n"
+            "Use `references/guide.md`.\n"
+        ),
+        encoding="utf-8",
+    )
+    (skill_dir / "agents/openai.yaml").write_text(
+        f"name: {skill_name}\ndescription: Demo skill fixture.\n",
+        encoding="utf-8",
+    )
+
+
+def _git(repo_root: Path, *args: str) -> None:
+    subprocess.run(
+        ["git", *args],
+        cwd=repo_root,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+
+
+def _init_git_repo(repo_root: Path) -> None:
+    repo_root.mkdir(parents=True, exist_ok=True)
+    _git(repo_root, "init")
+    _git(repo_root, "config", "user.email", "skill-audit@example.com")
+    _git(repo_root, "config", "user.name", "Skill Audit")
 
 
 def _run_cli(repo_root: Path, extra_args: list[str]) -> subprocess.CompletedProcess[str]:
@@ -149,3 +189,106 @@ def test_ci_mode_coexists_with_output_flags(tmp_path: Path) -> None:
     assert "Result: PASS" in result.stdout
     assert (output_dir / "skill-index.json").exists()
     assert (output_dir / "skill-remediation.md").exists()
+
+
+def test_compare_range_requires_changed_files(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _create_valid_repo(repo_root)
+
+    result = _run_cli(repo_root, ["--compare-range", "HEAD~1..HEAD"])
+    assert result.returncode == 2
+    assert "--compare-range requires --changed-files" in result.stderr
+
+
+def test_changed_files_mode_json_reports_scope_and_counts(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _init_git_repo(repo_root)
+    _create_valid_skill(repo_root, "skills/.curated/alpha", "alpha")
+    _create_valid_skill(repo_root, "skills/.experimental/bravo", "bravo")
+    _git(repo_root, "add", ".")
+    _git(repo_root, "commit", "-m", "baseline")
+
+    (repo_root / "skills/.curated/alpha/SKILL.md").write_text(
+        (
+            "---\n"
+            "name: alpha\n"
+            "description: Demo skill fixture.\n"
+            "---\n\n"
+            "# Demo Skill\n\n"
+            "Use `references/guide.md`.\n"
+            "Changed.\n"
+        ),
+        encoding="utf-8",
+    )
+
+    result = _run_cli(repo_root, ["--changed-files", "--json"])
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert payload["scan"]["mode"] == "changed-files"
+    assert payload["scan"]["compare_range"] is None
+    assert payload["scan"]["changed_file_count"] == 1
+    assert payload["scan"]["impacted_skill_count"] == 1
+    assert payload["scan"]["scanned_skill_count"] == 1
+    assert payload["scan"]["total_skill_count"] == 2
+    assert payload["scan"]["changed_files"] == ["skills/.curated/alpha/SKILL.md"]
+    assert [skill["path"] for skill in payload["skills"]] == ["skills/.curated/alpha"]
+
+
+def test_compare_range_scopes_incremental_scan(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _init_git_repo(repo_root)
+    _create_valid_skill(repo_root, "skills/.curated/alpha", "alpha")
+    _create_valid_skill(repo_root, "skills/.curated/bravo", "bravo")
+    _git(repo_root, "add", ".")
+    _git(repo_root, "commit", "-m", "baseline")
+
+    (repo_root / "skills/.curated/alpha/SKILL.md").write_text(
+        (
+            "---\n"
+            "name: alpha\n"
+            "description: Demo skill fixture.\n"
+            "---\n\n"
+            "# Alpha\n"
+        ),
+        encoding="utf-8",
+    )
+    _git(repo_root, "add", "skills/.curated/alpha/SKILL.md")
+    _git(repo_root, "commit", "-m", "alpha change")
+
+    (repo_root / "skills/.curated/bravo/SKILL.md").write_text(
+        (
+            "---\n"
+            "name: bravo\n"
+            "description: Demo skill fixture.\n"
+            "---\n\n"
+            "# Bravo\n"
+        ),
+        encoding="utf-8",
+    )
+    _git(repo_root, "add", "skills/.curated/bravo/SKILL.md")
+    _git(repo_root, "commit", "-m", "bravo change")
+
+    result = _run_cli(
+        repo_root,
+        ["--changed-files", "--compare-range", "HEAD~1..HEAD", "--json"],
+    )
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert payload["scan"]["compare_range"] == "HEAD~1..HEAD"
+    assert payload["scan"]["changed_files"] == ["skills/.curated/bravo/SKILL.md"]
+    assert [skill["path"] for skill in payload["skills"]] == ["skills/.curated/bravo"]
+
+
+def test_invalid_compare_range_returns_runtime_error(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _init_git_repo(repo_root)
+    _create_valid_skill(repo_root, "skills/.curated/alpha", "alpha")
+    _git(repo_root, "add", ".")
+    _git(repo_root, "commit", "-m", "baseline")
+
+    result = _run_cli(
+        repo_root,
+        ["--changed-files", "--compare-range", "HEAD~99..HEAD"],
+    )
+    assert result.returncode == 2
+    assert "runtime-error:" in result.stderr

@@ -62,7 +62,8 @@ def test_render_report_is_deterministic_and_includes_totals() -> None:
     ]
 
     report = render_report(findings, scanned_skill_count=2)
-    assert "Scanned skill directories: 2" in report
+    assert "Scan mode: full" in report
+    assert "Scanned skill directories: 2 of 2" in report
     assert report.index("skills/.curated/alpha/SKILL.md") < report.index(
         "skills/.curated/zeta/SKILL.md"
     )

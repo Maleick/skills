@@ -13,6 +13,13 @@ SEVERITY_SECTIONS: tuple[tuple[str, str], ...] = (
 def render_markdown_report(index_payload: dict[str, Any]) -> str:
     """Render deterministic markdown remediation report."""
     summary = index_payload["summary"]
+    scan = index_payload.get("scan", {})
+    scan_mode = scan.get("mode", "full")
+    compare_range = scan.get("compare_range")
+    changed_file_count = scan.get("changed_file_count", 0)
+    impacted_skill_count = scan.get("impacted_skill_count", summary["global"]["skill_count"])
+    scanned_skill_count = scan.get("scanned_skill_count", summary["global"]["skill_count"])
+    total_skill_count = scan.get("total_skill_count", summary["global"]["skill_count"])
     lines: list[str] = [
         "# Skill Audit Remediation Report",
         "",
@@ -23,6 +30,16 @@ def render_markdown_report(index_payload: dict[str, Any]) -> str:
         f"  - invalid: {summary['severity_totals']['invalid']}",
         f"  - warning: {summary['severity_totals']['warning']}",
         f"  - valid: {summary['severity_totals']['valid']}",
+        "- Scan scope:",
+        f"  - mode: {scan_mode}",
+        (
+            f"  - compare range: {compare_range}"
+            if compare_range is not None
+            else "  - compare range: working-tree (unstaged + staged + untracked)"
+        ),
+        f"  - changed files considered: {changed_file_count}",
+        f"  - impacted skills: {impacted_skill_count}",
+        f"  - scanned skills: {scanned_skill_count} of {total_skill_count}",
         "- Tier totals:",
     ]
 

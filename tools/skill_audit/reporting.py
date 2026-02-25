@@ -20,15 +20,41 @@ def summarize_findings(findings: Iterable[Finding]) -> dict[str, int]:
     return counts
 
 
-def render_report(findings: Iterable[Finding], scanned_skill_count: int) -> str:
+def render_report(
+    findings: Iterable[Finding],
+    scanned_skill_count: int,
+    scan_metadata: dict[str, object] | None = None,
+) -> str:
     """Render a human-readable report for CLI output."""
     ordered = sort_findings(findings)
     totals = summarize_findings(ordered)
 
+    mode = "full"
+    compare_range = None
+    changed_file_count = 0
+    impacted_skill_count = scanned_skill_count
+    total_skill_count = scanned_skill_count
+    if scan_metadata is not None:
+        mode = str(scan_metadata.get("mode", mode))
+        compare_range = scan_metadata.get("compare_range")
+        changed_file_count = int(scan_metadata.get("changed_file_count", 0))
+        impacted_skill_count = int(
+            scan_metadata.get("impacted_skill_count", impacted_skill_count)
+        )
+        total_skill_count = int(scan_metadata.get("total_skill_count", total_skill_count))
+
     lines = [
         "Skill Audit Report",
         "",
-        f"Scanned skill directories: {scanned_skill_count}",
+        f"Scan mode: {mode}",
+        (
+            f"Compare range: {compare_range}"
+            if compare_range is not None
+            else "Compare range: working-tree (unstaged + staged + untracked)"
+        ),
+        f"Changed files considered: {changed_file_count}",
+        f"Impacted skill directories: {impacted_skill_count}",
+        f"Scanned skill directories: {scanned_skill_count} of {total_skill_count}",
         "",
     ]
 
