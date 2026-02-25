@@ -1,172 +1,79 @@
 # Pitfalls Research
 
-**Domain:** Repository quality and discovery tooling for Codex skill catalogs
+**Domain:** Adding incremental scan and policy override features to an existing validator
 **Researched:** 2026-02-25
 **Confidence:** HIGH
 
 ## Critical Pitfalls
 
-### Pitfall 1: Over-Strict Rules That Block Adoption
+### Pitfall 1: Non-deterministic incremental scope
 
-**What goes wrong:**
-Validator flags too many warnings/errors, causing maintainers to bypass or disable it.
+**What goes wrong:** Changed-files mode emits unstable output ordering and mismatched counts.
 
-**Why it happens:**
-Rule sets are designed for ideal states without considering experimental directories or legacy patterns.
+**How to avoid:** Normalize and sort filtered scope before rule execution and rendering.
 
-**How to avoid:**
-Start with tier-aware severity defaults (`.curated` stricter, `.experimental` warning-biased), and ship with transparent policy config.
+**Warning signs:** Repeated runs on same diff produce different output ordering.
 
-**Warning signs:**
-High warning count on first run, repeated `--no-verify` usage, or frequent CI bypass conversations.
-
-**Phase to address:**
-Phase 1 and Phase 4.
+**Phase to address:** Phase 5.
 
 ---
 
-### Pitfall 2: False Positives from Cross-File Drift Assumptions
+### Pitfall 2: Silent override fallback
 
-**What goes wrong:**
-Tool reports metadata mismatches that are valid exceptions, reducing trust.
+**What goes wrong:** Invalid override config is ignored and default policy is applied silently.
 
-**Why it happens:**
-Rules assume every folder follows complete curated-skill contracts.
+**How to avoid:** Treat override parse/validation failures as runtime/config error with explicit message.
 
-**How to avoid:**
-Explicitly encode per-tier contracts and allow documented exceptions.
+**Warning signs:** CI output does not disclose active profile source.
 
-**Warning signs:**
-Findings that maintainers repeatedly mark as "expected" with no remediation.
-
-**Phase to address:**
-Phase 2.
+**Phase to address:** Phase 6.
 
 ---
 
-### Pitfall 3: Unstable Output Schema
+### Pitfall 3: Scope confusion in CI gate
 
-**What goes wrong:**
-CI consumers break when JSON structure changes across tool updates.
+**What goes wrong:** Gate result reflects partial scope but appears as full-repo verdict.
 
-**Why it happens:**
-No versioned report schema and no contract tests for output format.
+**How to avoid:** Echo scope source (`full` vs `changed` vs `tier-filtered`) in CI output and artifacts.
 
-**How to avoid:**
-Version the output schema and validate report payloads before release.
+**Warning signs:** Failing builds without clear indication of filtered scope.
 
-**Warning signs:**
-Downstream automation failures after minor changes.
-
-**Phase to address:**
-Phase 3 and Phase 4.
-
----
-
-### Pitfall 4: Hidden Writes by Default
-
-**What goes wrong:**
-Validation unexpectedly edits files, creating noisy diffs and distrust.
-
-**Why it happens:**
-Auto-fix and validation logic are coupled.
-
-**How to avoid:**
-Make read-only validation default; require explicit `--fix` for writes.
-
-**Warning signs:**
-Unexpected modified files after "check only" execution.
-
-**Phase to address:**
-Phase 1.
-
----
+**Phase to address:** Phase 7.
 
 ## Technical Debt Patterns
 
-Shortcuts that seem reasonable but create long-term problems.
-
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| Hard-coded path assumptions | Fast initial implementation | Breaks as repo structure evolves | Only in prototype branches |
-| One giant rule function | Fewer files now | Hard debugging and fragile changes | Never in v1 release |
-| Non-versioned JSON output | Faster shipping | CI integration breaks on refactors | Never once CI depends on output |
-
-## Integration Gotchas
-
-Common mistakes when connecting to external services.
-
-| Integration | Common Mistake | Correct Approach |
-|-------------|----------------|------------------|
-| Git diff integration | Assuming clean working tree only | Support staged/unstaged diff modes explicitly. |
-| CI gate | Treating warnings as hard failures always | Provide configurable threshold for fail-on-invalid only. |
-| Markdown reporting | Embedding terminal colors in files | Keep file outputs plain markdown; colorize terminal only. |
+| ad-hoc regex parsing of git output | quick implementation | path edge-case bugs | never for shipped CLI behavior |
+| copying policy logic into cli branches | fast prototyping | behavior drift and brittle tests | never |
 
 ## Performance Traps
 
-Patterns that work at small scale but fail as usage grows.
-
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| Full deep scan every run | Slow feedback in PRs | Add changed-files mode and cache fingerprints | Frequent CI runs on medium+ repos |
-| Duplicate parsing per rule | CPU-heavy scans | Parse once, share normalized artifact model | 500+ skill files |
-| Re-rendering report formats from scratch per rule | High overhead and inconsistency | Aggregate findings once, render after all rules | Mid-size repos with many rules |
-
-## Security Mistakes
-
-Domain-specific security issues beyond general web security.
-
-| Mistake | Risk | Prevention |
-|---------|------|------------|
-| Logging environment variable values in findings | Secret leakage in CI logs | Log variable names only, never values. |
-| Treating external reference URLs as trusted content | Supply-chain and trust issues | Validate syntax only; do not execute remote content. |
-| Auto-fixing YAML without parser guarantees | Corrupted metadata files | Use safe parser and dry-run diffs before write mode. |
-
-## UX Pitfalls
-
-Common user experience mistakes in this domain.
-
-| Pitfall | User Impact | Better Approach |
-|---------|-------------|-----------------|
-| Vague finding messages | Slow remediation | Include path, rule ID, why it matters, and suggested fix. |
-| Massive ungrouped output | Triage fatigue | Group by severity and skill folder. |
-| No summary counts | Hard to assess progress | Always show valid/warning/invalid totals. |
+| filtering findings after full scan every time | little speed gain | prune scope before heavy rule execution where possible | medium-large repos |
+| repeated YAML parse for every file | avoidable overhead | parse override once per command | frequent CI runs |
 
 ## "Looks Done But Isn't" Checklist
 
-Things that appear complete but are missing critical pieces.
-
-- [ ] **Validation command:** Often missing tier-aware exceptions — verify `.experimental` policy handling.
-- [ ] **JSON report:** Often missing schema version — verify `schema_version` field exists.
-- [ ] **Metadata parity checks:** Often missing cross-file link validation — verify `SKILL.md` ↔ `openai.yaml` checks.
-- [ ] **CI integration:** Often missing fail-threshold configurability — verify warning-only mode exists.
-
-## Recovery Strategies
-
-When pitfalls occur despite prevention, how to recover.
-
-| Pitfall | Recovery Cost | Recovery Steps |
-|---------|---------------|----------------|
-| Over-strict rules | MEDIUM | Reclassify severities by tier, add profile tests, release policy update. |
-| Output schema drift | HIGH | Introduce schema versioning, ship compatibility shim, update CI consumers. |
-| Hidden writes | MEDIUM | Split validate/fix commands, add dry-run and explicit opt-in flags. |
+- [ ] Incremental mode tested for renamed/deleted paths.
+- [ ] Override config validation tested for malformed YAML and invalid keys.
+- [ ] CI output explicitly shows effective scope and profile source.
+- [ ] JSON/markdown determinism preserved under incremental and override modes.
 
 ## Pitfall-to-Phase Mapping
 
-How roadmap phases should address these pitfalls.
-
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| Over-strict rules | Phase 1 and 4 | Baseline run shows manageable findings and clear thresholds. |
-| Cross-file false positives | Phase 2 | Known exception cases pass with expected severity. |
-| Output schema instability | Phase 3 and 4 | JSON schema tests pass and CI parsers remain compatible. |
+| Non-deterministic incremental scope | Phase 5 | deterministic subprocess tests over same changed-set input |
+| Silent override fallback | Phase 6 | invalid config returns exit 2 with explicit error |
+| Scope confusion in CI gate | Phase 7 | CI output assertions include scope/profile echo |
 
 ## Sources
 
-- Existing repo structure and observed gaps in `/opt/skills/skills/.experimental/*`.
-- Existing helper script practices in `/opt/skills/skills/.system/*/scripts`.
-- Operational patterns from CLI-based repository policy tools.
+- Existing v1.0 regression patterns and verification artifacts.
+- Existing CLI CI-gating behavior in `tools/skill_audit/cli.py`.
 
 ---
-*Pitfalls research for: repository quality and discovery tooling for Codex skills*
+*Pitfalls research for: v1.1 performance + policy milestone*
 *Researched: 2026-02-25*

@@ -1,6 +1,6 @@
 # Architecture Research
 
-**Domain:** Repository quality and discovery tooling for Codex skill catalogs
+**Domain:** Incremental scan and override policy integration for `tools/skill_audit`
 **Researched:** 2026-02-25
 **Confidence:** HIGH
 
@@ -8,173 +8,74 @@
 
 ### System Overview
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     Interface Layer                          │
-├─────────────────────────────────────────────────────────────┤
-│  CLI args parser   Config loader   Mode selector (CI/local) │
-└──────────────┬───────────────┬──────────────────────────────┘
-               │               │
-┌──────────────┴──────────────────────────────────────────────┐
-│                    Analysis Layer                           │
-├─────────────────────────────────────────────────────────────┤
-│ Scanner → Rule Engine → Findings Aggregator → Severity Map │
-└──────────────┬──────────────────────────────────────────────┘
-               │
-┌──────────────┴──────────────────────────────────────────────┐
-│                     Output Layer                             │
-├─────────────────────────────────────────────────────────────┤
-│ JSON writer   Markdown summary   Exit-code policy evaluator │
-└─────────────────────────────────────────────────────────────┘
-```
+- CLI orchestration (`cli.py`) remains single entrypoint.
+- Scanner layer resolves candidate skill directories.
+- Rule/policy layer evaluates findings with tier + override policy.
+- Reporting layer emits console/json/markdown/ci outputs.
 
 ### Component Responsibilities
 
 | Component | Responsibility | Typical Implementation |
 |-----------|----------------|------------------------|
-| Scanner | Enumerate candidate skill directories/files | Filesystem traversal with include/exclude filters. |
-| Rule Engine | Evaluate structural and metadata contracts | Rule registry with pure validation functions. |
-| Findings Aggregator | Normalize issues into one schema | Typed finding objects with severity + remediation. |
-| Output Adapters | Emit machine and human formats | JSON serializer + markdown/template renderer. |
-| Policy Evaluator | Determine process exit status | Configurable threshold mapping severity to exit code. |
+| `scanner.py` | skill directory discovery and changed-set filtering | deterministic path collection + sort |
+| `policy.py` / override helper | effective policy resolution | merge defaults with validated config |
+| `cli.py` | argument routing + gate semantics | explicit mode branches (default vs ci vs incremental) |
+| reporting/index modules | deterministic output serialization | canonical aggregate + renderer-specific formatting |
 
-## Recommended Project Structure
+## Recommended Project Structure Changes
 
 ```
-tools/skill-audit/
-├── cli.py                  # Entry point and argument parsing
-├── config.py               # Rule/profile configuration loading
-├── scanner.py              # Repository traversal logic
-├── rules/
-│   ├── structural.py       # Required file/folder checks
-│   ├── metadata.py         # SKILL/frontmatter/openai.yaml checks
-│   └── references.py       # Path/reference validity checks
-├── model/
-│   ├── finding.py          # Findings schema
-│   └── report.py           # Report aggregate schema
-├── output/
-│   ├── json_writer.py      # Machine output
-│   └── markdown_writer.py  # Human output
-└── tests/
-    ├── fixtures/           # Sample skill directories
-    └── test_*.py           # Rule + CLI tests
+tools/skill_audit/
+├── cli.py
+├── scanner.py
+├── policy.py
+├── override_config.py      # new: parse/validate repo override config
+├── tests/
+│   ├── test_incremental_scan.py
+│   ├── test_override_config.py
+│   └── test_ci_gating.py
 ```
-
-### Structure Rationale
-
-- **`rules/` separation:** keeps rule ownership explicit and reduces coupling.
-- **`model/` contracts:** stabilizes outputs for CI and downstream consumers.
-- **`output/` adapters:** allows format expansion without changing rule logic.
 
 ## Architectural Patterns
 
-### Pattern 1: Rule-Pipeline Validation
+### Pattern 1: Explicit Effective-Config Resolution
 
-**What:** scanner emits artifacts, rule engine evaluates them, aggregator composes findings.
-**When to use:** any multi-rule repository audit.
-**Trade-offs:** easy extension, but requires disciplined finding schema.
+Resolve runtime policy once from defaults + optional repo config and pass it through scan/evaluation paths.
 
-**Example:**
-```typescript
-// pseudo-flow
-scan() -> applyRules() -> normalizeFindings() -> writeReports()
-```
+### Pattern 2: Canonical Aggregation Then Filtering
 
-### Pattern 2: Typed Finding Envelope
+Keep canonical finding schema; incremental mode filters input scope before output rendering, not by introducing alternate finding schema.
 
-**What:** every rule returns the same shape (`id`, `severity`, `path`, `message`, `fix`).
-**When to use:** whenever multiple outputs (JSON + markdown + exit code) depend on shared data.
-**Trade-offs:** strong consistency, slightly higher upfront modeling cost.
+### Pattern 3: Deterministic Scope Metadata
 
-**Example:**
-```typescript
-{ id: "META-001", severity: "warning", path: "skills/.experimental/auto-memory", message: "Missing SKILL.md" }
-```
-
-### Pattern 3: Policy-Driven Exit Behavior
-
-**What:** map findings to exit codes via config profile.
-**When to use:** CI integration where warnings may or may not be blocking.
-**Trade-offs:** flexible, but requires clear default policy.
+All incremental and override outputs should echo scope/profile metadata to avoid ambiguity in CI logs.
 
 ## Data Flow
 
-### Request Flow
-
-```
-User/CI command
-    ↓
-CLI parser → config profile → scanner
-    ↓
-rule engine → finding aggregator
-    ↓
-JSON + Markdown reports
-    ↓
-exit-code policy
-```
-
-### State Management
-
-```
-In-memory report model
-    ↓
-Rendered outputs + optional artifacts on disk
-```
-
-### Key Data Flows
-
-1. **Skill directory evaluation:** directory -> structural rules -> metadata rules -> findings.
-2. **Report synthesis:** findings list -> grouped summary -> JSON/markdown outputs.
-
-## Scaling Considerations
-
-| Scale | Architecture Adjustments |
-|-------|--------------------------|
-| 0-200 skills | Single-process scan is sufficient. |
-| 200-1k skills | Add file hash caching and changed-path mode. |
-| 1k+ skills | Consider parallel scanning workers and batched IO. |
-
-### Scaling Priorities
-
-1. **First bottleneck:** repeated full scans in CI; solve with changed-path optimization.
-2. **Second bottleneck:** report noise and triage fatigue; solve with rule profiles/severity tuning.
-
-## Anti-Patterns
-
-### Anti-Pattern 1: Monolithic Validator Script
-
-**What people do:** place scan, rules, formatting, and CI logic in one file.
-**Why it's wrong:** difficult to test and extend safely.
-**Do this instead:** separate scanner/rules/model/output modules.
-
-### Anti-Pattern 2: Unstructured String-Based Findings
-
-**What people do:** emit ad-hoc text messages only.
-**Why it's wrong:** impossible to consume reliably in CI and downstream tools.
-**Do this instead:** enforce typed findings schema and render text from that schema.
+1. Parse args and optional override config.
+2. Build effective scan scope (full or changed).
+3. Run existing rules and tier policy translation.
+4. Evaluate CI policy against in-scope findings.
+5. Render outputs with explicit scope/profile summary.
 
 ## Integration Points
 
-### External Services
+| Integration | Pattern | Notes |
+|-------------|---------|-------|
+| Git changed-files collection | shell/git helper wrapper | avoid fragile parsing and normalize paths |
+| Override config file | YAML read + schema checks | invalid schema returns runtime/config error |
+| Existing output modules | reuse aggregate/index model | preserve determinism guarantees |
 
-| Service | Integration Pattern | Notes |
-|---------|---------------------|-------|
-| Git (`git diff`) | Optional changed-files source | Enables incremental scans for PR workflows. |
-| CI runners (GitHub Actions, etc.) | Command + artifact upload | JSON output should be deterministic and schema-validated. |
+## Anti-Patterns
 
-### Internal Boundaries
-
-| Boundary | Communication | Notes |
-|----------|---------------|-------|
-| scanner ↔ rules | In-memory artifact descriptors | Keep descriptors minimal and immutable. |
-| rules ↔ output | Findings model objects | No output formatting inside rule functions. |
+- Embedding override parsing logic across multiple modules.
+- Mixing incremental/full-scan semantics in report contracts without explicit markers.
+- Allowing silent config fallback in CI mode.
 
 ## Sources
 
-- Local repository structure and script conventions in `/opt/skills/skills/**`.
-- [JSON Schema](https://json-schema.org/) patterns for report contracts.
-- CLI design practices from Python argparse-based tooling.
+- Existing `tools/skill_audit` architecture and v1.0 phase summaries.
 
 ---
-*Architecture research for: repository quality and discovery tooling for Codex skills*
+*Architecture research for: v1.1 performance + policy milestone*
 *Researched: 2026-02-25*
