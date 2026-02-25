@@ -52,6 +52,29 @@ def _create_valid_skill(repo_root: Path, rel_skill_dir: str, skill_name: str) ->
     )
 
 
+def _create_mismatch_skill(repo_root: Path, rel_skill_dir: str, skill_name: str) -> None:
+    skill_dir = repo_root / rel_skill_dir
+    (skill_dir / "agents").mkdir(parents=True, exist_ok=True)
+    (skill_dir / "SKILL.md").write_text(
+        (
+            "---\n"
+            f"name: {skill_name}\n"
+            "description: Demo skill fixture.\n"
+            "---\n\n"
+            f"# {skill_name}\n"
+        ),
+        encoding="utf-8",
+    )
+    (skill_dir / "agents/openai.yaml").write_text(
+        "name: different-name\ndescription: Demo skill fixture.\n",
+        encoding="utf-8",
+    )
+
+
+def _write_override(repo_root: Path, content: str) -> None:
+    (repo_root / ".skill-audit-overrides.yaml").write_text(content, encoding="utf-8")
+
+
 def _git(repo_root: Path, *args: str) -> None:
     subprocess.run(
         ["git", *args],
@@ -292,3 +315,79 @@ def test_invalid_compare_range_returns_runtime_error(tmp_path: Path) -> None:
     )
     assert result.returncode == 2
     assert "runtime-error:" in result.stderr
+
+
+def test_invalid_override_file_returns_config_error(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _create_valid_repo(repo_root)
+    _write_override(
+        repo_root,
+        "version: 1\nseverity_overrides: [\n",
+    )
+
+    result = _run_cli(repo_root, [])
+    assert result.returncode == 2
+    assert "runtime-error:" in result.stderr
+    assert "malformed YAML" in result.stderr
+
+
+def test_override_applies_in_default_mode(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _create_mismatch_skill(repo_root, "skills/.experimental/demo", "demo")
+
+    baseline = _run_cli(repo_root, [])
+    assert baseline.returncode == 0
+    assert "- warning: 1" in baseline.stdout
+    assert "- invalid: 0" in baseline.stdout
+
+    _write_override(
+        repo_root,
+        (
+            "version: 1\n"
+            "severity_overrides:\n"
+            "  rule_tier:\n"
+            "    experimental:\n"
+            "      META-110: invalid\n"
+        ),
+    )
+    overridden = _run_cli(repo_root, [])
+    assert overridden.returncode == 1
+    assert "- warning: 0" in overridden.stdout
+    assert "- invalid: 1" in overridden.stdout
+
+
+def test_override_applies_in_changed_files_mode(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _init_git_repo(repo_root)
+    _create_mismatch_skill(repo_root, "skills/.experimental/demo", "demo")
+    _git(repo_root, "add", ".")
+    _git(repo_root, "commit", "-m", "baseline")
+
+    (repo_root / "skills/.experimental/demo/SKILL.md").write_text(
+        (
+            "---\n"
+            "name: demo\n"
+            "description: Demo skill fixture.\n"
+            "---\n\n"
+            "# Demo\n"
+            "changed\n"
+        ),
+        encoding="utf-8",
+    )
+
+    baseline = _run_cli(repo_root, ["--changed-files"])
+    assert baseline.returncode == 0
+
+    _write_override(
+        repo_root,
+        (
+            "version: 1\n"
+            "severity_overrides:\n"
+            "  rule_tier:\n"
+            "    experimental:\n"
+            "      META-110: invalid\n"
+        ),
+    )
+
+    overridden = _run_cli(repo_root, ["--changed-files"])
+    assert overridden.returncode == 1
