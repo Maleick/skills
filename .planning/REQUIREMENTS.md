@@ -13,7 +13,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Policy Governance
 
-- [ ] **RULE-03**: Maintainer can define and select named override policy profiles with explicit selector flags and deterministic precedence behavior.
+- [x] **RULE-03**: Maintainer can define and select named override policy profiles with explicit selector flags and deterministic precedence behavior.
 
 ### Historical Visibility
 
@@ -48,7 +48,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | PERF-04 | Phase 8 | Complete |
-| RULE-03 | Phase 9 | Pending |
+| RULE-03 | Phase 9 | Complete |
 | HIST-01 | Phase 10 | Pending |
 | FIX-01 | Phase 10 | Pending |
 
@@ -59,4 +59,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-26*
-*Last updated: 2026-02-26 phase 8 execution complete*
+*Last updated: 2026-02-26 phase 9 execution complete*

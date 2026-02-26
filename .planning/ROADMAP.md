@@ -30,7 +30,7 @@
 ### 🚧 v1.2 Governance & Automation (In Progress)
 
 - [x] **Phase 8: Persistent Cache Engine** - Add deterministic unchanged-skill cache pathways and cache correctness gates. (completed 2026-02-26)
-- [ ] **Phase 9: Named Policy Profiles** - Add multi-profile override governance with explicit profile selection controls.
+- [x] **Phase 9: Named Policy Profiles** - Add multi-profile override governance with explicit profile selection controls. (completed 2026-02-26)
 - [ ] **Phase 10: History and Autofix Suggestions** - Add trend snapshot artifacts and dry-run remediation suggestions.
 
 ## Phase Details
@@ -61,9 +61,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 09-01: Extend override schema/parser for named profile collections.
-- [ ] 09-02: Add CLI profile selector and runtime profile resolution integration.
-- [ ] 09-03: Add cross-mode profile selection regression matrix.
+- [x] 09-01: Extend override schema/parser for named profile collections.
+- [x] 09-02: Add CLI profile selector and runtime profile resolution integration.
+- [x] 09-03: Add cross-mode profile selection regression matrix.
 
 ### Phase 10: History and Autofix Suggestions
 **Goal**: Maintainers can track quality trends and receive safe dry-run remediation suggestions.
@@ -95,5 +95,5 @@ Phases execute in numeric order: 8 → 9 → 10
 | 6. Override Policy Profiles | v1.1 | 3/3 | Complete | 2026-02-25 |
 | 7. Override-Aware Reporting and CI | v1.1 | 2/2 | Complete | 2026-02-26 |
 | 8. Persistent Cache Engine | v1.2 | 3/3 | Complete | 2026-02-26 |
-| 9. Named Policy Profiles | v1.2 | 0/3 | Not started | - |
+| 9. Named Policy Profiles | v1.2 | 3/3 | Complete | 2026-02-26 |
 | 10. History and Autofix Suggestions | v1.2 | 0/3 | Not started | - |

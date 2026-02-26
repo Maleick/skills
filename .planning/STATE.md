@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: governance-automation
 status: ready_to_plan
-last_updated: "2026-02-26T17:51:57.000Z"
+last_updated: "2026-02-26T18:10:39.000Z"
 progress:
   total_phases: 10
-  completed_phases: 8
+  completed_phases: 9
   total_plans: 28
-  completed_plans: 22
+  completed_plans: 25
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-26)
 
 **Core value:** Maintainers can run one reliable validation workflow that catches structural and metadata drift across all skills before changes are merged.
-**Current focus:** Phase 9 context captured; ready to plan.
+**Current focus:** Phase 9 complete; prepare and plan Phase 10.
 
 ## Current Position
 
-Phase: 9 of 10 (Named Policy Profiles)
+Phase: 10 of 10 (History and Autofix Suggestions)
 Plan: 0 plans created
-Status: Ready to plan
-Last activity: 2026-02-26 — Phase 9 context captured
+Status: Ready to discuss/plan
+Last activity: 2026-02-26 — Phase 9 execution complete
 
-Progress: [████████░░] 80%
+Progress: [█████████░] 90%
 
 ## Accumulated Context
 
@@ -44,14 +44,15 @@ Progress: [████████░░] 80%
 - Persistent cache is repo-local at `.planning/cache/skill-audit-cache.json` and remains optimization-only.
 - Cache identity/invalidation is deterministic by skill content fingerprint + policy profile signature + rule signature.
 - Cache telemetry is additive in scan/report/CI metadata; `--no-cache` enforces recompute mode for parity checks.
-- Phase 9 will introduce named override profiles with explicit selection and strict fail-fast validation.
-- Active profile resolution remains deterministic and must stay consistent across default, CI, and changed-files modes.
+- Override policy supports named profiles with strict schema validation in `.skill-audit-overrides.yaml`.
+- Active profile selection is deterministic (`--profile` explicit > config default > single profile) and fail-fast on ambiguity.
+- Policy metadata now includes additive profile identity (`profile_name`, `selection`, `available_profiles`) across outputs.
 
 ### Pending Todos
 
-- Plan Phase 9 (`$gsd-plan-phase 9 --auto`).
-- Execute Phase 9 plans after planning completion.
-- Plan and execute Phase 10 to close v1.2.
+- Discuss/plan Phase 10 (`$gsd-discuss-phase 10 --auto` or `$gsd-plan-phase 10 --auto`).
+- Execute Phase 10 plans and verify HIST-01/FIX-01 completion.
+- Run milestone closeout (`$gsd-audit-milestone --auto`, `$gsd-complete-milestone --auto`).
 
 ### Blockers/Concerns
 
@@ -59,6 +60,6 @@ Progress: [████████░░] 80%
 
 ## Session Continuity
 
-Last session: 2026-02-26 11:51:00 -0600
-Stopped at: Phase 9 context gathered
-Resume file: .planning/phases/09-named-policy-profiles/09-CONTEXT.md
+Last session: 2026-02-26 12:10:39 -0600
+Stopped at: Phase 9 execution complete
+Resume file: .planning/phases/09-named-policy-profiles/09-VERIFICATION.md
