@@ -9,7 +9,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Performance and Caching
 
-- [ ] **PERF-04**: Maintainer can reuse unchanged-skill validation state via persistent cache without changing scan/report correctness.
+- [x] **PERF-04**: Maintainer can reuse unchanged-skill validation state via persistent cache without changing scan/report correctness.
 
 ### Policy Governance
 
@@ -47,7 +47,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| PERF-04 | Phase 8 | Pending |
+| PERF-04 | Phase 8 | Complete |
 | RULE-03 | Phase 9 | Pending |
 | HIST-01 | Phase 10 | Pending |
 | FIX-01 | Phase 10 | Pending |
@@ -59,4 +59,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-26*
-*Last updated: 2026-02-26 milestone v1.2 initialization*
+*Last updated: 2026-02-26 phase 8 execution complete*

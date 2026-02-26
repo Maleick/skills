@@ -27,9 +27,9 @@
 
 </details>
 
-### 🚧 v1.2 Governance & Automation (Planned)
+### 🚧 v1.2 Governance & Automation (In Progress)
 
-- [ ] **Phase 8: Persistent Cache Engine** - Add deterministic unchanged-skill cache pathways and cache correctness gates.
+- [x] **Phase 8: Persistent Cache Engine** - Add deterministic unchanged-skill cache pathways and cache correctness gates. (completed 2026-02-26)
 - [ ] **Phase 9: Named Policy Profiles** - Add multi-profile override governance with explicit profile selection controls.
 - [ ] **Phase 10: History and Autofix Suggestions** - Add trend snapshot artifacts and dry-run remediation suggestions.
 
@@ -46,9 +46,9 @@
 **Plans**: 3 plans
 
 Plans:
-- [ ] 08-01: Implement cache key model and storage module.
-- [ ] 08-02: Integrate cache into scan pipeline with correctness guards.
-- [ ] 08-03: Add cache parity/invalidations regression tests and docs.
+- [x] 08-01: Implement cache key model and storage module.
+- [x] 08-02: Integrate cache into scan pipeline with correctness guards.
+- [x] 08-03: Add cache parity/invalidations regression tests and docs.
 
 ### Phase 9: Named Policy Profiles
 **Goal**: Maintainers can define and select named override profiles for different policy contexts.
@@ -94,6 +94,6 @@ Phases execute in numeric order: 8 → 9 → 10
 | 5. Incremental Scan Performance | v1.1 | 3/3 | Complete | 2026-02-25 |
 | 6. Override Policy Profiles | v1.1 | 3/3 | Complete | 2026-02-25 |
 | 7. Override-Aware Reporting and CI | v1.1 | 2/2 | Complete | 2026-02-26 |
-| 8. Persistent Cache Engine | v1.2 | 0/3 | Not started | - |
+| 8. Persistent Cache Engine | v1.2 | 3/3 | Complete | 2026-02-26 |
 | 9. Named Policy Profiles | v1.2 | 0/3 | Not started | - |
 | 10. History and Autofix Suggestions | v1.2 | 0/3 | Not started | - |

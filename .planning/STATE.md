@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: governance-automation
-status: ready_to_execute
-last_updated: "2026-02-26T03:35:00.000Z"
+status: ready_to_plan
+last_updated: "2026-02-26T17:21:43.000Z"
 progress:
   total_phases: 10
-  completed_phases: 7
+  completed_phases: 8
   total_plans: 28
-  completed_plans: 19
+  completed_plans: 22
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-26)
 
 **Core value:** Maintainers can run one reliable validation workflow that catches structural and metadata drift across all skills before changes are merged.
-**Current focus:** Phase 8 plans created; ready to execute.
+**Current focus:** Phase 8 complete; prepare and plan Phase 9.
 
 ## Current Position
 
-Phase: 8 of 10 (Persistent Cache Engine)
-Plan: 3 plans created
-Status: Ready to execute
-Last activity: 2026-02-26 — Phase 8 plans created
+Phase: 9 of 10 (Named Policy Profiles)
+Plan: 0 plans created
+Status: Ready to discuss/plan
+Last activity: 2026-02-26 — Phase 8 execution complete
 
-Progress: [███████░░░] 70%
+Progress: [████████░░] 80%
 
 ## Accumulated Context
 
@@ -41,19 +41,22 @@ Progress: [███████░░░] 70%
 - Invalid override config fails fast with runtime/config exit code `2`.
 - Output and CI surfaces include explicit policy-profile metadata (`source`, `active`, `mode`, override counts).
 - CI threshold evaluation remains deterministic on translated in-scope findings after override application.
-- v1.2 scope prioritizes cache correctness, named profile governance, historical trend artifacts, and dry-run autofix suggestions.
+- Persistent cache is repo-local at `.planning/cache/skill-audit-cache.json` and remains optimization-only.
+- Cache identity/invalidation is deterministic by skill content fingerprint + policy profile signature + rule signature.
+- Cache telemetry is additive in scan/report/CI metadata; `--no-cache` enforces recompute mode for parity checks.
 
 ### Pending Todos
 
-- Execute Phase 8 plans (`$gsd-execute-phase 8 --auto`).
-- Plan and execute remaining v1.2 phases 9-10.
+- Discuss/plan Phase 9 (`$gsd-discuss-phase 9 --auto` or `$gsd-plan-phase 9 --auto`).
+- Execute Phase 9 plans after planning completion.
+- Plan and execute Phase 10 to close v1.2.
 
 ### Blockers/Concerns
 
-- Tooling milestone detection can drift; continue grounding scope on ROADMAP milestone headings.
+- `gsd-tools phase complete` milestone detection can drift; continue grounding on `.planning/ROADMAP.md` and `REQUIREMENTS.md` when finalizing updates.
 
 ## Session Continuity
 
-Last session: 2026-02-25 21:35:00 -0600
-Stopped at: Phase 8 plans created
-Resume file: .planning/phases/08-persistent-cache-engine/08-01-PLAN.md
+Last session: 2026-02-26 11:09:00 -0600
+Stopped at: Phase 8 execution complete
+Resume file: .planning/phases/08-persistent-cache-engine/08-VERIFICATION.md
