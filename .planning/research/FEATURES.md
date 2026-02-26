@@ -1,8 +1,8 @@
 # Feature Research
 
-**Domain:** CLI validator operational scalability and governance
-**Researched:** 2026-02-25
-**Confidence:** HIGH
+**Domain:** Repository quality governance and operator automation
+**Researched:** 2026-02-26
+**Confidence:** MEDIUM
 
 ## Feature Landscape
 
@@ -10,53 +10,76 @@
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| Changed-files scan mode | Maintainers need fast feedback in large repos | MEDIUM | Must preserve deterministic output semantics. |
-| Repo-level override policy file | Teams need local policy customization without forking | MEDIUM | Requires clear precedence and validation. |
-| Override visibility in output | CI users need to know which policy was applied | LOW | Include source/profile echo in output. |
+| Persistent cache for unchanged scans | Large repos need repeated fast runs | MEDIUM | Must preserve deterministic outputs across cache hit/miss paths. |
+| Profile-based policy selection | Teams need different policy strictness contexts | MEDIUM | Extends current single-profile override model. |
+| Historical run snapshots | Maintainers need trend visibility over time | MEDIUM | Can start as file/sqlite snapshots; UI not required. |
 
 ### Differentiators (Competitive Advantage)
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| Profile validation + fail-fast diagnostics | Safer adoption in CI and pre-commit | MEDIUM | Invalid config should hard-fail clearly. |
-| Scope-aware incremental stats | Better confidence in partial scans | MEDIUM | Distinguish scanned subset vs full repository context. |
+| Dry-run autofix suggestions | Helps teams remediate quickly without unsafe writes | MEDIUM-HIGH | Keep read-only by default, suggest-only in v1.2. |
+| Deterministic trend + profile-aware reports | Builds trust for CI and audit workflows | MEDIUM | Reuse existing deterministic ordering rules. |
 
 ### Anti-Features (Commonly Requested, Often Problematic)
 
 | Feature | Why Requested | Why Problematic | Alternative |
 |---------|---------------|-----------------|-------------|
-| Silent fallback on invalid override config | “Don’t break builds” instinct | hides policy drift and creates false trust | explicit runtime/config error with clear guidance |
-| Auto-fix during validation | quick remediation | risky mutations in CI/read-only workflows | keep validate-only and surface actionable fixes |
+| Automatic file mutation by default | “Fix everything in one command” | Risky and hard to trust in CI; large blast radius | Dry-run suggestions first; opt-in apply later |
+| Highly dynamic per-run random metadata | “More context in reports” | Breaks regression stability and contract tests | Stable summaries + optional explicit debug payload |
 
 ## Feature Dependencies
 
-- Override-aware reporting depends on stable override resolution contract.
-- Incremental scan depends on robust changed-path collection and tier derivation.
-- CI policy trust depends on both deterministic ordering and explicit scope/profile echo.
+```
+[Persistent cache]
+    └──enables──> [faster incremental/trend pipelines]
 
-## MVP Definition (v1.1)
+[Named policy profiles]
+    └──feeds──> [profile-aware snapshots and reporting]
 
-### Launch With (v1.1)
+[Historical snapshots]
+    └──informs──> [autofix prioritization suggestions]
+```
 
-- [ ] Changed-files scan mode and compare-range options.
-- [ ] Repository override policy profile file support.
-- [ ] Clear output indicators for active profile/scope.
+### Dependency Notes
 
-### Add After Validation (v1.x)
+- **Historical snapshots depend on stable identity keys:** without deterministic skill/rule identifiers, trends are noisy.
+- **Autofix suggestions depend on clear finding taxonomy:** rule metadata and suggested fixes must remain structured.
 
-- [ ] Baseline snapshots for quality trend checks.
-- [ ] Additional override profile presets and docs examples.
+## MVP Definition
+
+### Launch With (v1.2)
+
+- [ ] `PERF-04` persistent cache for unchanged-skill metadata.
+- [ ] `RULE-03` named override profiles with explicit selector.
+- [ ] `HIST-01` historical trend snapshot artifact generation.
+- [ ] `FIX-01` dry-run autofix suggestion output (no write mutation).
+
+### Add After Validation (v1.3)
+
+- [ ] Optional autofix apply mode with explicit confirmation and backup paths.
+- [ ] Snapshot diff/compare UX improvements.
 
 ### Future Consideration (v2+)
 
-- [ ] Auto-fix suggestions with dry-run mode.
-- [ ] Historical reporting dashboards.
+- [ ] Hosted dashboard and interactive visualization.
+- [ ] Multi-repo federated trends.
+
+## Feature Prioritization Matrix
+
+| Feature | User Value | Implementation Cost | Priority |
+|---------|------------|---------------------|----------|
+| PERF-04 cache | HIGH | MEDIUM | P1 |
+| RULE-03 profiles | HIGH | MEDIUM | P1 |
+| HIST-01 snapshots | MEDIUM-HIGH | MEDIUM | P1 |
+| FIX-01 dry-run suggestions | MEDIUM-HIGH | MEDIUM-HIGH | P1 |
 
 ## Sources
 
-- Existing v1.0 artifacts and requirements archive.
-- Existing CLI/test behavior in `tools/skill_audit`.
+- v1.1 deferred requirements and milestone audit outcomes.
+- Existing CLI/operator workflow constraints in project docs.
+- Current regression suite and deterministic contract requirements.
 
 ---
-*Feature research for: v1.1 performance + policy milestone*
-*Researched: 2026-02-25*
+*Feature research for: governance and automation expansion*
+*Researched: 2026-02-26*

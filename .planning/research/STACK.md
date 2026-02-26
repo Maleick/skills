@@ -1,8 +1,8 @@
 # Stack Research
 
-**Domain:** Skill catalog validator performance and policy extensibility
-**Researched:** 2026-02-25
-**Confidence:** HIGH
+**Domain:** Skills repository audit, policy governance, and remediation automation CLI
+**Researched:** 2026-02-26
+**Confidence:** MEDIUM
 
 ## Recommended Stack
 
@@ -10,43 +10,71 @@
 
 | Technology | Version | Purpose | Why Recommended |
 |------------|---------|---------|-----------------|
-| Python | 3.11+ | CLI/runtime foundation | Existing validator is Python-first and already tested. |
-| argparse + pathlib | stdlib | CLI interface and filesystem traversal | Zero-dependency fit with current architecture. |
-| pytest | current repo baseline | Regression verification | Existing suite already provides subprocess-level safety. |
+| Python | 3.11+ | Core CLI/runtime | Already the project runtime; keeps v1.2 additive and low-risk. |
+| pytest | 8.x | Contract/regression tests | Existing workflow already depends on deterministic subprocess tests. |
+| PyYAML | 6.x | Policy/profile config parsing | Already used for override parsing and strict config validation. |
 
 ### Supporting Libraries
 
 | Library | Version | Purpose | When to Use |
 |---------|---------|---------|-------------|
-| pathspec | 0.12+ | Gitignore-aware path filtering | Useful for changed-file filtering with explicit include/exclude behavior. |
-| pyyaml | existing | Config parsing | Keep for repo override profile file support. |
+| sqlite3 (stdlib) | bundled | Persistent cache + historical snapshots | Use for fast local metadata cache and trend indexing without extra infra. |
+| hashlib/json/pathlib (stdlib) | bundled | Cache keys and deterministic serialization | Use for stable fingerprints and repeatable snapshot payloads. |
+| difflib (stdlib) | bundled | Dry-run autofix suggestion rendering | Use for suggested patch previews without mutating files. |
 
 ### Development Tools
 
 | Tool | Purpose | Notes |
 |------|---------|-------|
-| git CLI | changed-file inputs | Use for `--changed` and compare-range semantics. |
-| py_compile | syntax validation | Fast pre-test gate for touched modules. |
+| py_compile | Syntax gate | Keep as pre-test check for changed modules. |
+| pytest subprocess tests | CLI contract locks | Continue verifying exit codes and text output determinism. |
+
+## Installation
+
+```bash
+# Existing dependencies (already in project)
+pip install pyyaml pytest
+
+# No additional external dependency required for v1.2 baseline
+```
 
 ## Alternatives Considered
 
 | Recommended | Alternative | When to Use Alternative |
 |-------------|-------------|-------------------------|
-| explicit override config file | env-var-only policy overrides | Only for ad-hoc local debugging, not team-shared policy. |
-| deterministic filesystem scan + filter | direct shell pipeline filtering | Avoid when deterministic ordering and cross-platform behavior matter. |
+| sqlite3 (stdlib) | DuckDB | If snapshot analytics/query volume grows significantly. |
+| stdlib diffs | external patch engines | If future milestone adds auto-apply write mode with conflict resolution. |
 
 ## What NOT to Use
 
 | Avoid | Why | Use Instead |
 |-------|-----|-------------|
-| implicit mutable global policy state | hard to reason/test in CI | explicit policy resolution per invocation |
-| non-deterministic traversal/filtering | noisy diffs and flaky tests | stable sorted path resolution |
+| In-memory-only cache | Lost between runs, no trend support | Persistent sqlite/json cache with deterministic keys |
+| Non-deterministic timestamps in core output contracts | Breaks regression stability | Stable fields + optional timestamp isolation |
+
+## Stack Patterns by Variant
+
+**If running local dev scans repeatedly:**
+- Use persistent cache with content hash invalidation.
+- Keep report payload deterministic independent of cache hit path.
+
+**If running CI strict mode:**
+- Treat cache as optional optimization, never source-of-truth.
+- Recompute when cache invalid/missing.
+
+## Version Compatibility
+
+| Package A | Compatible With | Notes |
+|-----------|-----------------|-------|
+| Python 3.11+ | pytest 8.x | Matches current suite usage and syntax. |
+| PyYAML 6.x | existing override parser | No migration needed for v1.2 profile extension. |
 
 ## Sources
 
-- Existing repository implementation in `tools/skill_audit/`.
-- Existing v1.0 tests and milestone verification artifacts.
+- Existing repository implementation (`tools/skill_audit/*`) and tests.
+- Milestone v1.1 audit and verification artifacts.
+- Existing CLI contract and deterministic-output test patterns.
 
 ---
-*Stack research for: v1.1 performance + policy milestone*
-*Researched: 2026-02-25*
+*Stack research for: skills audit governance and automation*
+*Researched: 2026-02-26*

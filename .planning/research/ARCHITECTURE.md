@@ -1,81 +1,109 @@
 # Architecture Research
 
-**Domain:** Incremental scan and override policy integration for `tools/skill_audit`
-**Researched:** 2026-02-25
-**Confidence:** HIGH
+**Domain:** CLI-based skill audit governance and automation extensions
+**Researched:** 2026-02-26
+**Confidence:** MEDIUM
 
 ## Standard Architecture
 
 ### System Overview
 
-- CLI orchestration (`cli.py`) remains single entrypoint.
-- Scanner layer resolves candidate skill directories.
-- Rule/policy layer evaluates findings with tier + override policy.
-- Reporting layer emits console/json/markdown/ci outputs.
+```
+┌─────────────────────────────────────────────────────────────┐
+│ CLI Layer (`tools/skill_audit/cli.py`)                      │
+├─────────────────────────────────────────────────────────────┤
+│  Scan Scope  │ Policy Resolution │ Reporting │ CI Gate      │
+├─────────────────────────────────────────────────────────────┤
+│ Core Engine (`scanner`, `rules`, `policy`, `indexing`)      │
+├─────────────────────────────────────────────────────────────┤
+│ Data Layer (cache + snapshots + deterministic artifacts)     │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ### Component Responsibilities
 
 | Component | Responsibility | Typical Implementation |
 |-----------|----------------|------------------------|
-| `scanner.py` | skill directory discovery and changed-set filtering | deterministic path collection + sort |
-| `policy.py` / override helper | effective policy resolution | merge defaults with validated config |
-| `cli.py` | argument routing + gate semantics | explicit mode branches (default vs ci vs incremental) |
-| reporting/index modules | deterministic output serialization | canonical aggregate + renderer-specific formatting |
+| Cache subsystem | Persist unchanged-skill metadata and fingerprints | New module using sqlite/json + content hash keys |
+| Profile selector | Resolve named override profile for current invocation | Extend override config loader + CLI flags |
+| Snapshot writer | Emit run summaries for trend analysis | Deterministic JSON records in dedicated history location |
+| Autofix suggester | Produce safe dry-run patch suggestions | Rule-linked suggestion registry and diff formatter |
 
-## Recommended Project Structure Changes
+## Recommended Project Structure
 
 ```
 tools/skill_audit/
-├── cli.py
-├── scanner.py
-├── policy.py
-├── override_config.py      # new: parse/validate repo override config
-├── tests/
-│   ├── test_incremental_scan.py
-│   ├── test_override_config.py
-│   └── test_ci_gating.py
+├── cli.py                    # command entrypoint + orchestration
+├── scanner.py                # changed-file and skill discovery
+├── policy.py                 # severity translation + profile behavior
+├── override_config.py        # override schema/profile parsing
+├── cache.py                  # new: cache keying/read/write/invalidation
+├── history.py                # new: snapshot persistence and trend summaries
+├── autofix.py                # new: dry-run suggestion generation
+└── tests/
 ```
 
 ## Architectural Patterns
 
-### Pattern 1: Explicit Effective-Config Resolution
+### Pattern 1: Deterministic Contract Boundary
 
-Resolve runtime policy once from defaults + optional repo config and pass it through scan/evaluation paths.
+**What:** Keep cache/history/autofix internals behind stable scan/report outputs.
+**When to use:** Any time performance or helper features are added.
+**Trade-offs:** Slightly more adapter code; much safer compatibility.
 
-### Pattern 2: Canonical Aggregation Then Filtering
+### Pattern 2: Read-Only Default with Explicit Opt-In Modes
 
-Keep canonical finding schema; incremental mode filters input scope before output rendering, not by introducing alternate finding schema.
+**What:** New automation features suggest and report by default, no mutation.
+**When to use:** Autofix capabilities and policy profile selection UX.
+**Trade-offs:** Less immediate automation, far lower safety risk.
 
-### Pattern 3: Deterministic Scope Metadata
+### Pattern 3: Layered Fallbacks
 
-All incremental and override outputs should echo scope/profile metadata to avoid ambiguity in CI logs.
+**What:** Cache/profile/history features fail gracefully to existing baseline behavior.
+**When to use:** CI and local runs where optional data may be missing.
+**Trade-offs:** More branches to test; improved operational robustness.
 
 ## Data Flow
 
-1. Parse args and optional override config.
-2. Build effective scan scope (full or changed).
-3. Run existing rules and tier policy translation.
-4. Evaluate CI policy against in-scope findings.
-5. Render outputs with explicit scope/profile summary.
+### Request Flow
+
+```
+CLI args
+  -> scope discovery
+  -> profile resolution
+  -> cache lookup / recompute
+  -> findings translation
+  -> index/report generation
+  -> optional snapshot + autofix suggestion output
+```
+
+### Key Data Flows
+
+1. **Cache flow:** skill fingerprint -> cached metadata -> validation short-circuit when safe.
+2. **Profile flow:** selected profile -> override policy translation -> CI/report outputs.
+3. **History/autofix flow:** findings summary -> trend artifact -> dry-run suggestions.
 
 ## Integration Points
 
-| Integration | Pattern | Notes |
-|-------------|---------|-------|
-| Git changed-files collection | shell/git helper wrapper | avoid fragile parsing and normalize paths |
-| Override config file | YAML read + schema checks | invalid schema returns runtime/config error |
-| Existing output modules | reuse aggregate/index model | preserve determinism guarantees |
+| Boundary | Communication | Notes |
+|----------|---------------|-------|
+| `cli.py` ↔ `override_config.py` | function API + typed profile metadata | Extend from single active profile to named profile selection. |
+| `cli.py` ↔ `cache.py` | function API + deterministic key contract | Cache is optional optimization; never authoritative over invalidation. |
+| `indexing/reporting` ↔ `history.py` | structured payload handoff | Snapshot schema should reuse index summary shape when possible. |
+| `rules` ↔ `autofix.py` | rule ID to suggestion mapping | Suggestions stay explicit and auditable. |
 
 ## Anti-Patterns
 
-- Embedding override parsing logic across multiple modules.
-- Mixing incremental/full-scan semantics in report contracts without explicit markers.
-- Allowing silent config fallback in CI mode.
+- Coupling cache hits directly to user-visible ordering or counts.
+- Embedding profile-selection logic separately in CI and non-CI paths.
+- Emitting snapshot fields that change nondeterministically run-to-run.
 
 ## Sources
 
-- Existing `tools/skill_audit` architecture and v1.0 phase summaries.
+- Existing skill_audit architecture and verification artifacts.
+- v1.1 milestone audit integration findings.
+- Current deterministic output and CI contract assumptions.
 
 ---
-*Architecture research for: v1.1 performance + policy milestone*
-*Researched: 2026-02-25*
+*Architecture research for: v1.2 governance and automation*
+*Researched: 2026-02-26*

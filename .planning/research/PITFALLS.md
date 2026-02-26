@@ -1,79 +1,129 @@
 # Pitfalls Research
 
-**Domain:** Adding incremental scan and policy override features to an existing validator
-**Researched:** 2026-02-25
-**Confidence:** HIGH
+**Domain:** Skills audit performance/governance automation expansion
+**Researched:** 2026-02-26
+**Confidence:** MEDIUM
 
 ## Critical Pitfalls
 
-### Pitfall 1: Non-deterministic incremental scope
+### Pitfall 1: Cache Correctness Drift
 
-**What goes wrong:** Changed-files mode emits unstable output ordering and mismatched counts.
+**What goes wrong:**
+Cached results diverge from real file state, hiding new issues.
 
-**How to avoid:** Normalize and sort filtered scope before rule execution and rendering.
+**Why it happens:**
+Weak invalidation keys or not hashing all relevant inputs.
 
-**Warning signs:** Repeated runs on same diff produce different output ordering.
+**How to avoid:**
+Use deterministic fingerprints that include file content + selected profile context + rule schema version.
 
-**Phase to address:** Phase 5.
+**Warning signs:**
+Identical files produce different results between cached and uncached runs, or stale findings persist after edits.
 
----
-
-### Pitfall 2: Silent override fallback
-
-**What goes wrong:** Invalid override config is ignored and default policy is applied silently.
-
-**How to avoid:** Treat override parse/validation failures as runtime/config error with explicit message.
-
-**Warning signs:** CI output does not disclose active profile source.
-
-**Phase to address:** Phase 6.
+**Phase to address:**
+Phase 8 (cache foundation + invalidation tests).
 
 ---
 
-### Pitfall 3: Scope confusion in CI gate
+### Pitfall 2: Profile Selection Ambiguity
 
-**What goes wrong:** Gate result reflects partial scope but appears as full-repo verdict.
+**What goes wrong:**
+Different modes (default/CI/changed-files) resolve different policy profiles unintentionally.
 
-**How to avoid:** Echo scope source (`full` vs `changed` vs `tier-filtered`) in CI output and artifacts.
+**Why it happens:**
+Profile selection logic duplicated in multiple code paths.
 
-**Warning signs:** Failing builds without clear indication of filtered scope.
+**How to avoid:**
+One canonical profile resolver in CLI pipeline used by all modes.
 
-**Phase to address:** Phase 7.
+**Warning signs:**
+Same invocation scope yields different severities between modes.
+
+**Phase to address:**
+Phase 9 (named profile model + selector contract).
+
+---
+
+### Pitfall 3: Snapshot Noise and Non-Determinism
+
+**What goes wrong:**
+Historical outputs become noisy and not comparable due to unstable fields.
+
+**Why it happens:**
+Unbounded metadata/timestamps included in core comparison payloads.
+
+**How to avoid:**
+Separate stable snapshot core from optional runtime metadata.
+
+**Warning signs:**
+Trend diffs report high churn without real repository changes.
+
+**Phase to address:**
+Phase 10 (history schema and deterministic serialization tests).
+
+---
+
+### Pitfall 4: Unsafe Autofix Expectations
+
+**What goes wrong:**
+Users assume suggested fixes are always safe to apply blindly.
+
+**Why it happens:**
+Suggestion output appears authoritative without confidence/scope context.
+
+**How to avoid:**
+Keep v1.2 strictly dry-run, include rule-level caveats and confidence labels.
+
+**Warning signs:**
+Suggestions conflict with project conventions or reference missing context.
+
+**Phase to address:**
+Phase 10 (dry-run suggestion engine + safety wording tests).
 
 ## Technical Debt Patterns
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| ad-hoc regex parsing of git output | quick implementation | path edge-case bugs | never for shipped CLI behavior |
-| copying policy logic into cli branches | fast prototyping | behavior drift and brittle tests | never |
+| Cache without schema versioning | Quick implementation | Hard invalidation bugs after rule changes | Never |
+| Implicit default profile switching | Fewer flags | Debugging ambiguity in CI | Never |
+| Autofix suggestions without rule-level constraints | Faster rollout | Unsafe recommendations | Never |
 
 ## Performance Traps
 
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| filtering findings after full scan every time | little speed gain | prune scope before heavy rule execution where possible | medium-large repos |
-| repeated YAML parse for every file | avoidable overhead | parse override once per command | frequent CI runs |
+| Overly granular cache writes | IO-heavy runs | Batch writes and bounded indexes | medium-large repos |
+| Snapshot payload bloat | Slow trend queries | Store compact summaries + optional detail files | repeated CI/history usage |
+
+## Security Mistakes
+
+| Mistake | Risk | Prevention |
+|---------|------|------------|
+| Storing sensitive path contents in snapshots | Information disclosure | Store relative paths and normalized metadata only |
+| Accepting arbitrary profile names without validation | Policy bypass/confusion | Strict selector validation and clear errors |
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] Incremental mode tested for renamed/deleted paths.
-- [ ] Override config validation tested for malformed YAML and invalid keys.
-- [ ] CI output explicitly shows effective scope and profile source.
-- [ ] JSON/markdown determinism preserved under incremental and override modes.
+- [ ] Cache validates schema/version drift, not just file mtime.
+- [ ] Profile selection is identical across default, CI, and changed-files modes.
+- [ ] Snapshot output remains deterministic under repeated identical inputs.
+- [ ] Autofix suggestions are dry-run only and clearly non-mutating.
 
 ## Pitfall-to-Phase Mapping
 
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| Non-deterministic incremental scope | Phase 5 | deterministic subprocess tests over same changed-set input |
-| Silent override fallback | Phase 6 | invalid config returns exit 2 with explicit error |
-| Scope confusion in CI gate | Phase 7 | CI output assertions include scope/profile echo |
+| Cache correctness drift | Phase 8 | cache hit/miss parity tests |
+| Profile selection ambiguity | Phase 9 | cross-mode profile resolution tests |
+| Snapshot non-determinism | Phase 10 | repeated-run snapshot stability tests |
+| Unsafe autofix expectations | Phase 10 | suggestion safety/wording contract tests |
 
 ## Sources
 
-- Existing v1.0 regression patterns and verification artifacts.
-- Existing CLI CI-gating behavior in `tools/skill_audit/cli.py`.
+- Existing v1.1 verification and milestone audit findings.
+- Current CI determinism and reporting contract tests.
+- Existing deferred requirement set for v2 capabilities.
 
 ---
-*Pitfalls research for: v1.1 performance + policy milestone*
-*Researched: 2026-02-25*
+*Pitfalls research for: v1.2 governance and automation*
+*Researched: 2026-02-26*
