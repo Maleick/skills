@@ -20,8 +20,8 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Reporting and CI Clarity
 
-- [ ] **VIS-01**: Console/JSON/markdown outputs include effective policy profile and scope metadata.
-- [ ] **CI-03**: CI gate semantics remain deterministic and evaluate threshold on active scope after policy overrides.
+- [x] **VIS-01**: Console/JSON/markdown outputs include effective policy profile and scope metadata.
+- [x] **CI-03**: CI gate semantics remain deterministic and evaluate threshold on active scope after policy overrides.
 
 ## v2 Requirements
 
@@ -58,8 +58,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PERF-03 | Phase 5 | Complete |
 | RULE-01 | Phase 6 | Complete |
 | RULE-02 | Phase 6 | Complete |
-| VIS-01 | Phase 7 | Pending |
-| CI-03 | Phase 7 | Pending |
+| VIS-01 | Phase 7 | Complete |
+| CI-03 | Phase 7 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 7 total
@@ -68,4 +68,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-25*
-*Last updated: 2026-02-25 after Phase 6 completion*
+*Last updated: 2026-02-26 after Phase 7 completion*

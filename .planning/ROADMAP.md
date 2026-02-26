@@ -21,7 +21,7 @@
 
 - [x] **Phase 5: Incremental Scan Performance** - Add changed-scope scan pathways and deterministic incremental outputs. (completed 2026-02-25)
 - [x] **Phase 6: Override Policy Profiles** - Add repository-level override config parsing and policy resolution. (completed 2026-02-25)
-- [ ] **Phase 7: Override-Aware Reporting and CI** - Surface effective scope/profile in outputs and preserve deterministic CI gate behavior.
+- [x] **Phase 7: Override-Aware Reporting and CI** - Surface effective scope/profile in outputs and preserve deterministic CI gate behavior. (completed 2026-02-26)
 
 ## Phase Details
 
@@ -63,11 +63,11 @@ Plans:
   1. Console/JSON/markdown output surfaces effective scope and policy profile metadata.
   2. CI gate evaluation remains deterministic and scoped to active findings after override translation.
   3. Existing non-incremental and non-override workflows remain backward compatible.
-**Plans**: 2 plans
+**Plans**: 2/2 plans complete
 
 Plans:
-- [ ] 07-01: Add override/scope metadata surfacing across output renderers.
-- [ ] 07-02: Extend CI regression suite for override-aware threshold behavior and compatibility.
+- [x] 07-01: Add override/scope metadata surfacing across output renderers.
+- [x] 07-02: Extend CI regression suite for override-aware threshold behavior and compatibility.
 
 ### Phase 1: Validator Foundation (Archived)
 **Goal**: Establish baseline repository scan and finding model.
@@ -102,4 +102,4 @@ Phases execute in numeric order: 5 → 6 → 7
 |-------|-----------|----------------|--------|-----------|
 | 5. Incremental Scan Performance | v1.1 | 3/3 | Complete | 2026-02-25 |
 | 6. Override Policy Profiles | v1.1 | 3/3 | Complete | 2026-02-25 |
-| 7. Override-Aware Reporting and CI | v1.1 | 0/2 | Not started | - |
+| 7. Override-Aware Reporting and CI | v1.1 | 2/2 | Complete | 2026-02-26 |
