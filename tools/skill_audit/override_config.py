@@ -29,6 +29,39 @@ class OverrideProfile:
     rule_tier: dict[tuple[str, str], str]
 
 
+def build_policy_profile_metadata(
+    override_profile: OverrideProfile | None,
+    *,
+    source_filename: str = OVERRIDE_CONFIG_FILENAME,
+) -> dict[str, Any]:
+    """Return deterministic policy-profile metadata for reporting surfaces."""
+    tier_count = 0
+    rule_count = 0
+    rule_tier_count = 0
+    if override_profile is not None:
+        tier_count = len(override_profile.tier)
+        rule_count = len(override_profile.rule)
+        rule_tier_count = len(override_profile.rule_tier)
+
+    active = override_profile is not None
+    return {
+        "source": source_filename if active else "default",
+        "active": active,
+        "mode": "severity-overrides" if active else "base-default",
+        "override_counts": {
+            "tier": tier_count,
+            "rule": rule_count,
+            "rule_tier": rule_tier_count,
+            "total": tier_count + rule_count + rule_tier_count,
+        },
+    }
+
+
+def default_policy_profile_metadata() -> dict[str, Any]:
+    """Return default policy-profile metadata when no override file is active."""
+    return build_policy_profile_metadata(None)
+
+
 def _format_path(path: Path) -> str:
     return path.as_posix()
 

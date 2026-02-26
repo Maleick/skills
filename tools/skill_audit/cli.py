@@ -11,7 +11,11 @@ from typing import Sequence
 from .findings import Finding
 from .indexing import build_skill_index
 from .markdown_report import render_markdown_report
-from .override_config import OverrideConfigError, load_override_profile
+from .override_config import (
+    OverrideConfigError,
+    build_policy_profile_metadata,
+    load_override_profile,
+)
 from .policy import (
     TIER_CURATED,
     TIER_EXPERIMENTAL,
@@ -203,6 +207,7 @@ def _build_scan_metadata(
     scanned_skill_dirs: list[Path],
     repo_root: Path,
     total_skill_count: int,
+    policy_profile: dict[str, object],
 ) -> dict[str, object]:
     root = repo_root.resolve()
     scanned_skills: list[str] = []
@@ -221,6 +226,7 @@ def _build_scan_metadata(
         "scanned_skill_count": len(scanned_skill_dirs),
         "total_skill_count": total_skill_count,
         "scanned_skills": scanned_skills,
+        "policy_profile": policy_profile,
     }
 
 
@@ -236,6 +242,23 @@ def _render_ci_report(
     policy_failed = _is_gate_failure(in_scope_findings, max_severity)
     scope_label = "all" if tiers is None else ",".join(tiers)
     result_label = "FAIL" if policy_failed else "PASS"
+    policy_profile = scan_metadata.get("policy_profile")
+    policy_active = False
+    policy_source = "default"
+    policy_mode = "base-default"
+    policy_counts = {"tier": 0, "rule": 0, "rule_tier": 0, "total": 0}
+    if isinstance(policy_profile, dict):
+        policy_active = bool(policy_profile.get("active", False))
+        policy_source = str(policy_profile.get("source", "default"))
+        policy_mode = str(policy_profile.get("mode", "base-default"))
+        raw_counts = policy_profile.get("override_counts")
+        if isinstance(raw_counts, dict):
+            policy_counts = {
+                "tier": int(raw_counts.get("tier", 0)),
+                "rule": int(raw_counts.get("rule", 0)),
+                "rule_tier": int(raw_counts.get("rule_tier", 0)),
+                "total": int(raw_counts.get("total", 0)),
+            }
     lines = [
         "Skill Audit CI Gate",
         f"Result: {result_label}",
@@ -252,6 +275,16 @@ def _render_ci_report(
             "Scanned skill directories: "
             f"{scan_metadata['scanned_skill_count']} "
             f"of {scan_metadata['total_skill_count']}"
+        ),
+        f"Policy profile active: {'yes' if policy_active else 'no'}",
+        f"Policy source: {policy_source}",
+        f"Policy mode: {policy_mode}",
+        (
+            "Policy overrides: "
+            f"tier={policy_counts['tier']}, "
+            f"rule={policy_counts['rule']}, "
+            f"rule+tier={policy_counts['rule_tier']}, "
+            f"total={policy_counts['total']}"
         ),
         (
             "In-scope findings: "
@@ -297,6 +330,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     try:
         override_profile = load_override_profile(repo_root)
+        policy_profile_metadata = build_policy_profile_metadata(override_profile)
         all_skill_dirs = discover_skill_dirs(repo_root)
         changed_files: list[str] = []
         if args.changed_files:
@@ -321,6 +355,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             scanned_skill_dirs=skill_dirs,
             repo_root=repo_root,
             total_skill_count=len(all_skill_dirs),
+            policy_profile=policy_profile_metadata,
         )
         findings = []
         for skill_dir in skill_dirs:

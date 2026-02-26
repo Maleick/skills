@@ -61,9 +61,29 @@ def test_render_report_is_deterministic_and_includes_totals() -> None:
         ),
     ]
 
-    report = render_report(findings, scanned_skill_count=2)
-    assert "Scan mode: full" in report
-    assert "Scanned skill directories: 2 of 2" in report
+    report = render_report(
+        findings,
+        scanned_skill_count=2,
+        scan_metadata={
+            "mode": "changed-files",
+            "changed_file_count": 1,
+            "impacted_skill_count": 2,
+            "scanned_skill_count": 2,
+            "total_skill_count": 4,
+            "policy_profile": {
+                "source": ".skill-audit-overrides.yaml",
+                "active": True,
+                "mode": "severity-overrides",
+                "override_counts": {"tier": 1, "rule": 0, "rule_tier": 1, "total": 2},
+            },
+        },
+    )
+    assert "Scan mode: changed-files" in report
+    assert "Scanned skill directories: 2 of 4" in report
+    assert "Policy profile active: yes" in report
+    assert "Policy source: .skill-audit-overrides.yaml" in report
+    assert "Policy mode: severity-overrides" in report
+    assert "Policy overrides: tier=1, rule=0, rule+tier=1, total=2" in report
     assert report.index("skills/.curated/alpha/SKILL.md") < report.index(
         "skills/.curated/zeta/SKILL.md"
     )

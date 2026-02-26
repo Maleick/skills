@@ -9,6 +9,7 @@ from typing import Any
 import yaml
 
 from .findings import ALLOWED_SEVERITIES, Finding
+from .override_config import default_policy_profile_metadata
 
 SEVERITY_RANK: dict[str, int] = {"invalid": 0, "warning": 1, "valid": 2}
 TIER_ORDER: tuple[str, ...] = ("system", "curated", "experimental", "unknown")
@@ -118,6 +119,7 @@ def _default_scan_metadata(skill_count: int) -> dict[str, Any]:
         "scanned_skill_count": skill_count,
         "total_skill_count": skill_count,
         "scanned_skills": [],
+        "policy_profile": default_policy_profile_metadata(),
     }
 
 

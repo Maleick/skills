@@ -210,6 +210,8 @@ def test_ci_mode_coexists_with_output_flags(tmp_path: Path) -> None:
     assert result.returncode == 0
     assert "Skill Audit CI Gate" in result.stdout
     assert "Result: PASS" in result.stdout
+    assert "Policy profile active: no" in result.stdout
+    assert "Policy source: default" in result.stdout
     assert (output_dir / "skill-index.json").exists()
     assert (output_dir / "skill-remediation.md").exists()
 
@@ -254,6 +256,12 @@ def test_changed_files_mode_json_reports_scope_and_counts(tmp_path: Path) -> Non
     assert payload["scan"]["scanned_skill_count"] == 1
     assert payload["scan"]["total_skill_count"] == 2
     assert payload["scan"]["changed_files"] == ["skills/.curated/alpha/SKILL.md"]
+    assert payload["scan"]["policy_profile"] == {
+        "source": "default",
+        "active": False,
+        "mode": "base-default",
+        "override_counts": {"tier": 0, "rule": 0, "rule_tier": 0, "total": 0},
+    }
     assert [skill["path"] for skill in payload["skills"]] == ["skills/.curated/alpha"]
 
 
@@ -339,6 +347,8 @@ def test_override_applies_in_default_mode(tmp_path: Path) -> None:
     assert baseline.returncode == 0
     assert "- warning: 1" in baseline.stdout
     assert "- invalid: 0" in baseline.stdout
+    assert "Policy profile active: no" in baseline.stdout
+    assert "Policy source: default" in baseline.stdout
 
     _write_override(
         repo_root,
@@ -354,6 +364,10 @@ def test_override_applies_in_default_mode(tmp_path: Path) -> None:
     assert overridden.returncode == 1
     assert "- warning: 0" in overridden.stdout
     assert "- invalid: 1" in overridden.stdout
+    assert "Policy profile active: yes" in overridden.stdout
+    assert "Policy source: .skill-audit-overrides.yaml" in overridden.stdout
+    assert "Policy mode: severity-overrides" in overridden.stdout
+    assert "Policy overrides: tier=0, rule=0, rule+tier=1, total=1" in overridden.stdout
 
 
 def test_override_applies_in_changed_files_mode(tmp_path: Path) -> None:
@@ -391,3 +405,32 @@ def test_override_applies_in_changed_files_mode(tmp_path: Path) -> None:
 
     overridden = _run_cli(repo_root, ["--changed-files"])
     assert overridden.returncode == 1
+
+
+def test_json_output_includes_active_policy_profile_metadata(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _create_mismatch_skill(repo_root, "skills/.experimental/demo", "demo")
+    _write_override(
+        repo_root,
+        (
+            "version: 1\n"
+            "severity_overrides:\n"
+            "  tier:\n"
+            "    experimental: warning\n"
+            "  rule:\n"
+            "    META-001: invalid\n"
+            "  rule_tier:\n"
+            "    experimental:\n"
+            "      META-110: invalid\n"
+        ),
+    )
+
+    result = _run_cli(repo_root, ["--json"])
+    assert result.returncode == 1
+    payload = json.loads(result.stdout)
+    assert payload["scan"]["policy_profile"] == {
+        "source": ".skill-audit-overrides.yaml",
+        "active": True,
+        "mode": "severity-overrides",
+        "override_counts": {"tier": 1, "rule": 1, "rule_tier": 1, "total": 3},
+    }

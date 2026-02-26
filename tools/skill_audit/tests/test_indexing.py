@@ -53,6 +53,12 @@ def test_build_skill_index_core_contract_and_status(tmp_path: Path) -> None:
     assert payload["scan"]["mode"] == "full"
     assert payload["scan"]["scanned_skill_count"] == 2
     assert payload["scan"]["total_skill_count"] == 2
+    assert payload["scan"]["policy_profile"] == {
+        "source": "default",
+        "active": False,
+        "mode": "base-default",
+        "override_counts": {"tier": 0, "rule": 0, "rule_tier": 0, "total": 0},
+    }
     assert payload["summary"]["global"]["finding_count"] == 3
     assert payload["summary"]["global"]["total_skill_count"] == 2
     assert payload["summary"]["severity_totals"] == {"valid": 1, "warning": 1, "invalid": 1}
@@ -115,8 +121,28 @@ def test_build_skill_index_uses_provided_scan_metadata(tmp_path: Path) -> None:
         "scanned_skill_count": 1,
         "total_skill_count": 3,
         "scanned_skills": ["skills/.system/one"],
+        "policy_profile": {
+            "source": ".skill-audit-overrides.yaml",
+            "active": True,
+            "mode": "severity-overrides",
+            "override_counts": {"tier": 1, "rule": 1, "rule_tier": 2, "total": 4},
+        },
     }
 
     payload = build_skill_index([skill_a], findings, repo_root, scan_metadata=scan_metadata)
     assert payload["scan"] == scan_metadata
     assert payload["summary"]["global"]["total_skill_count"] == 3
+
+
+def test_build_skill_index_adds_default_policy_profile_when_missing(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    skill_a = _create_skill(repo_root, "skills/.system/one", "one", "desc one")
+    payload = build_skill_index(
+        [skill_a],
+        [],
+        repo_root,
+        scan_metadata={"mode": "changed-files"},
+    )
+    assert payload["scan"]["mode"] == "changed-files"
+    assert payload["scan"]["policy_profile"]["source"] == "default"
+    assert payload["scan"]["policy_profile"]["active"] is False

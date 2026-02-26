@@ -69,6 +69,8 @@ def test_ci_default_fails_when_invalid_exists(tmp_path: Path) -> None:
     assert "Skill Audit CI Gate" in result.stdout
     assert "Threshold: warning" in result.stdout
     assert "Result: FAIL" in result.stdout
+    assert "Policy profile active: no" in result.stdout
+    assert "Policy source: default" in result.stdout
 
 
 def test_ci_default_passes_when_only_warning_exists(tmp_path: Path) -> None:
@@ -239,6 +241,10 @@ def test_ci_override_can_escalate_warning_to_invalid(tmp_path: Path) -> None:
     assert result.returncode == 1
     assert "Result: FAIL" in result.stdout
     assert "invalid=1" in result.stdout
+    assert "Policy profile active: yes" in result.stdout
+    assert "Policy source: .skill-audit-overrides.yaml" in result.stdout
+    assert "Policy mode: severity-overrides" in result.stdout
+    assert "Policy overrides: tier=0, rule=0, rule+tier=1, total=1" in result.stdout
 
 
 def test_ci_invalid_override_file_returns_config_error(tmp_path: Path) -> None:
@@ -255,3 +261,31 @@ def test_ci_invalid_override_file_returns_config_error(tmp_path: Path) -> None:
     result = _run_cli(repo_root, ["--ci"])
     assert result.returncode == 2
     assert "runtime-error:" in result.stderr
+
+
+def test_ci_override_scoped_mode_is_deterministic(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _write_skill(
+        repo_root,
+        tier="experimental",
+        name="experimental-warning",
+        skill_name="experimental-warning",
+        openai_name="different-name",
+    )
+    _write_override(
+        repo_root,
+        (
+            "version: 1\n"
+            "severity_overrides:\n"
+            "  rule_tier:\n"
+            "    experimental:\n"
+            "      META-110: invalid\n"
+        ),
+    )
+
+    first = _run_cli(repo_root, ["--ci", "--tiers", "experimental", "--max-severity", "valid"])
+    second = _run_cli(repo_root, ["--ci", "--tiers", "experimental", "--max-severity", "valid"])
+
+    assert first.returncode == 1
+    assert second.returncode == 1
+    assert first.stdout == second.stdout

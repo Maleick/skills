@@ -20,6 +20,20 @@ def render_markdown_report(index_payload: dict[str, Any]) -> str:
     impacted_skill_count = scan.get("impacted_skill_count", summary["global"]["skill_count"])
     scanned_skill_count = scan.get("scanned_skill_count", summary["global"]["skill_count"])
     total_skill_count = scan.get("total_skill_count", summary["global"]["skill_count"])
+    policy_profile = scan.get("policy_profile", {})
+    policy_active = bool(policy_profile.get("active", False))
+    policy_source = str(policy_profile.get("source", "default"))
+    policy_mode = str(policy_profile.get("mode", "base-default"))
+    raw_override_counts = policy_profile.get("override_counts", {})
+    if isinstance(raw_override_counts, dict):
+        policy_counts = {
+            "tier": int(raw_override_counts.get("tier", 0)),
+            "rule": int(raw_override_counts.get("rule", 0)),
+            "rule_tier": int(raw_override_counts.get("rule_tier", 0)),
+            "total": int(raw_override_counts.get("total", 0)),
+        }
+    else:
+        policy_counts = {"tier": 0, "rule": 0, "rule_tier": 0, "total": 0}
     lines: list[str] = [
         "# Skill Audit Remediation Report",
         "",
@@ -40,6 +54,17 @@ def render_markdown_report(index_payload: dict[str, Any]) -> str:
         f"  - changed files considered: {changed_file_count}",
         f"  - impacted skills: {impacted_skill_count}",
         f"  - scanned skills: {scanned_skill_count} of {total_skill_count}",
+        "- Policy profile:",
+        f"  - active: {'yes' if policy_active else 'no'}",
+        f"  - source: {policy_source}",
+        f"  - mode: {policy_mode}",
+        (
+            "  - overrides: "
+            f"tier={policy_counts['tier']}, "
+            f"rule={policy_counts['rule']}, "
+            f"rule+tier={policy_counts['rule_tier']}, "
+            f"total={policy_counts['total']}"
+        ),
         "- Tier totals:",
     ]
 
