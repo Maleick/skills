@@ -22,22 +22,26 @@ def summarize_findings(findings: Iterable[Finding]) -> dict[str, int]:
 
 def _policy_profile_from_scan_metadata(
     scan_metadata: dict[str, object] | None,
-) -> tuple[bool, str, str, dict[str, int]]:
+) -> tuple[bool, str, str, str, str, dict[str, int]]:
     active = False
     source = "default"
     mode = "base-default"
+    profile_name = "default"
+    selection = "base-default"
     counts = {"tier": 0, "rule": 0, "rule_tier": 0, "total": 0}
 
     if scan_metadata is None:
-        return active, source, mode, counts
+        return active, source, mode, profile_name, selection, counts
 
     raw_profile = scan_metadata.get("policy_profile")
     if not isinstance(raw_profile, dict):
-        return active, source, mode, counts
+        return active, source, mode, profile_name, selection, counts
 
     active = bool(raw_profile.get("active", False))
     source = str(raw_profile.get("source", source))
     mode = str(raw_profile.get("mode", mode))
+    profile_name = str(raw_profile.get("profile_name", profile_name))
+    selection = str(raw_profile.get("selection", selection))
 
     raw_counts = raw_profile.get("override_counts")
     if isinstance(raw_counts, dict):
@@ -48,7 +52,7 @@ def _policy_profile_from_scan_metadata(
             "total": int(raw_counts.get("total", 0)),
         }
 
-    return active, source, mode, counts
+    return active, source, mode, profile_name, selection, counts
 
 
 def _cache_profile_from_scan_metadata(
@@ -93,6 +97,8 @@ def render_report(
     policy_active = False
     policy_source = "default"
     policy_mode = "base-default"
+    policy_profile_name = "default"
+    policy_selection = "base-default"
     policy_counts = {"tier": 0, "rule": 0, "rule_tier": 0, "total": 0}
     cache_enabled = False
     cache_mode = "disabled"
@@ -109,6 +115,8 @@ def render_report(
         policy_active,
         policy_source,
         policy_mode,
+        policy_profile_name,
+        policy_selection,
         policy_counts,
     ) = _policy_profile_from_scan_metadata(scan_metadata)
     cache_enabled, cache_mode, cache_stats = _cache_profile_from_scan_metadata(scan_metadata)
@@ -128,6 +136,8 @@ def render_report(
         f"Policy profile active: {'yes' if policy_active else 'no'}",
         f"Policy source: {policy_source}",
         f"Policy mode: {policy_mode}",
+        f"Policy profile: {policy_profile_name}",
+        f"Policy selection: {policy_selection}",
         (
             "Policy overrides: "
             f"tier={policy_counts['tier']}, "

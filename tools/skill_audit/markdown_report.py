@@ -24,6 +24,8 @@ def render_markdown_report(index_payload: dict[str, Any]) -> str:
     policy_active = bool(policy_profile.get("active", False))
     policy_source = str(policy_profile.get("source", "default"))
     policy_mode = str(policy_profile.get("mode", "base-default"))
+    policy_profile_name = str(policy_profile.get("profile_name", "default"))
+    policy_selection = str(policy_profile.get("selection", "base-default"))
     raw_override_counts = policy_profile.get("override_counts", {})
     if isinstance(raw_override_counts, dict):
         policy_counts = {
@@ -65,6 +67,8 @@ def render_markdown_report(index_payload: dict[str, Any]) -> str:
         f"  - active: {'yes' if policy_active else 'no'}",
         f"  - source: {policy_source}",
         f"  - mode: {policy_mode}",
+        f"  - profile: {policy_profile_name}",
+        f"  - selection: {policy_selection}",
         (
             "  - overrides: "
             f"tier={policy_counts['tier']}, "

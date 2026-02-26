@@ -19,7 +19,7 @@ from .markdown_report import render_markdown_report
 from .override_config import (
     OverrideConfigError,
     build_policy_profile_metadata,
-    load_override_profile,
+    load_override_profile_selection,
 )
 from .policy import (
     TIER_CURATED,
@@ -104,6 +104,14 @@ def _build_parser() -> argparse.ArgumentParser:
         "--no-cache",
         action="store_true",
         help="Disable persistent cache usage and recompute every skill.",
+    )
+    parser.add_argument(
+        "--profile",
+        default=None,
+        help=(
+            "Named override policy profile to apply from "
+            "`.skill-audit-overrides.yaml`."
+        ),
     )
     parser.add_argument(
         "--ci",
@@ -260,6 +268,8 @@ def _render_ci_report(
     policy_active = False
     policy_source = "default"
     policy_mode = "base-default"
+    policy_profile_name = "default"
+    policy_selection = "base-default"
     policy_counts = {"tier": 0, "rule": 0, "rule_tier": 0, "total": 0}
     cache_enabled = False
     cache_mode = "disabled"
@@ -271,6 +281,8 @@ def _render_ci_report(
         policy_active = bool(policy_profile.get("active", False))
         policy_source = str(policy_profile.get("source", "default"))
         policy_mode = str(policy_profile.get("mode", "base-default"))
+        policy_profile_name = str(policy_profile.get("profile_name", "default"))
+        policy_selection = str(policy_profile.get("selection", "base-default"))
         raw_counts = policy_profile.get("override_counts")
         if isinstance(raw_counts, dict):
             policy_counts = {
@@ -307,6 +319,8 @@ def _render_ci_report(
         f"Policy profile active: {'yes' if policy_active else 'no'}",
         f"Policy source: {policy_source}",
         f"Policy mode: {policy_mode}",
+        f"Policy profile: {policy_profile_name}",
+        f"Policy selection: {policy_selection}",
         (
             "Policy overrides: "
             f"tier={policy_counts['tier']}, "
@@ -366,10 +380,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
 
     try:
-        override_profile = load_override_profile(repo_root)
-        policy_profile_metadata = build_policy_profile_metadata(override_profile)
+        resolved_profile = load_override_profile_selection(
+            repo_root,
+            profile_name=args.profile,
+        )
+        override_profile = resolved_profile.profile if resolved_profile is not None else None
+        policy_profile_metadata = build_policy_profile_metadata(resolved_profile)
         cache = SkillAuditCache(repo_root=repo_root, enabled=not args.no_cache)
-        policy_signature = build_policy_profile_signature(override_profile)
+        active_profile_name = None
+        if resolved_profile is not None:
+            active_profile_name = resolved_profile.profile_name
+        policy_signature = build_policy_profile_signature(
+            override_profile,
+            active_profile_name=active_profile_name,
+        )
         rules_signature = build_rules_signature()
         all_skill_dirs = discover_skill_dirs(repo_root)
         changed_files: list[str] = []

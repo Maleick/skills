@@ -215,6 +215,8 @@ def test_ci_mode_coexists_with_output_flags(tmp_path: Path) -> None:
     assert "Result: PASS" in result.stdout
     assert "Policy profile active: no" in result.stdout
     assert "Policy source: default" in result.stdout
+    assert "Policy profile: default" in result.stdout
+    assert "Policy selection: base-default" in result.stdout
     assert (output_dir / "skill-index.json").exists()
     assert (output_dir / "skill-remediation.md").exists()
 
@@ -263,6 +265,9 @@ def test_changed_files_mode_json_reports_scope_and_counts(tmp_path: Path) -> Non
         "source": "default",
         "active": False,
         "mode": "base-default",
+        "profile_name": "default",
+        "selection": "base-default",
+        "available_profiles": [],
         "override_counts": {"tier": 0, "rule": 0, "rule_tier": 0, "total": 0},
     }
     assert payload["scan"]["cache"] == {
@@ -360,6 +365,8 @@ def test_override_applies_in_default_mode(tmp_path: Path) -> None:
     assert "- invalid: 0" in baseline.stdout
     assert "Policy profile active: no" in baseline.stdout
     assert "Policy source: default" in baseline.stdout
+    assert "Policy profile: default" in baseline.stdout
+    assert "Policy selection: base-default" in baseline.stdout
 
     _write_override(
         repo_root,
@@ -378,6 +385,8 @@ def test_override_applies_in_default_mode(tmp_path: Path) -> None:
     assert "Policy profile active: yes" in overridden.stdout
     assert "Policy source: .skill-audit-overrides.yaml" in overridden.stdout
     assert "Policy mode: severity-overrides" in overridden.stdout
+    assert "Policy profile: default" in overridden.stdout
+    assert "Policy selection: legacy-default" in overridden.stdout
     assert "Policy overrides: tier=0, rule=0, rule+tier=1, total=1" in overridden.stdout
 
 
@@ -443,6 +452,9 @@ def test_json_output_includes_active_policy_profile_metadata(tmp_path: Path) -> 
         "source": ".skill-audit-overrides.yaml",
         "active": True,
         "mode": "severity-overrides",
+        "profile_name": "default",
+        "selection": "legacy-default",
+        "available_profiles": ["default"],
         "override_counts": {"tier": 1, "rule": 1, "rule_tier": 1, "total": 3},
     }
     assert payload["scan"]["cache"]["enabled"] is True
@@ -525,3 +537,80 @@ def test_changed_files_cache_ignores_cache_artifact_in_scope_counts(tmp_path: Pa
     assert second_payload["scan"]["changed_files"] == ["skills/.curated/alpha/SKILL.md"]
     assert first_payload["scan"]["cache"]["misses"] == 1
     assert second_payload["scan"]["cache"]["hits"] == 1
+
+
+def test_named_profiles_default_and_explicit_selection(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _create_mismatch_skill(repo_root, "skills/.experimental/demo", "demo")
+    _write_override(
+        repo_root,
+        (
+            "version: 1\n"
+            "default_profile: strict\n"
+            "profiles:\n"
+            "  strict:\n"
+            "    rule_tier:\n"
+            "      experimental:\n"
+            "        META-110: invalid\n"
+            "  balanced:\n"
+            "    rule_tier:\n"
+            "      experimental:\n"
+            "        META-110: warning\n"
+        ),
+    )
+
+    default_run = _run_cli(repo_root, ["--json"])
+    balanced_run = _run_cli(repo_root, ["--json", "--profile", "balanced"])
+    assert default_run.returncode == 1
+    assert balanced_run.returncode == 0
+
+    default_payload = json.loads(default_run.stdout)
+    balanced_payload = json.loads(balanced_run.stdout)
+
+    assert default_payload["scan"]["policy_profile"]["profile_name"] == "strict"
+    assert default_payload["scan"]["policy_profile"]["selection"] == "config-default"
+    assert balanced_payload["scan"]["policy_profile"]["profile_name"] == "balanced"
+    assert balanced_payload["scan"]["policy_profile"]["selection"] == "explicit"
+    assert default_payload["summary"]["severity_totals"]["invalid"] == 1
+    assert balanced_payload["summary"]["severity_totals"]["warning"] == 1
+
+
+def test_named_profiles_without_default_require_selector(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _create_mismatch_skill(repo_root, "skills/.experimental/demo", "demo")
+    _write_override(
+        repo_root,
+        (
+            "version: 1\n"
+            "profiles:\n"
+            "  strict:\n"
+            "    rule_tier:\n"
+            "      experimental:\n"
+            "        META-110: invalid\n"
+            "  balanced:\n"
+            "    rule_tier:\n"
+            "      experimental:\n"
+            "        META-110: warning\n"
+        ),
+    )
+
+    result = _run_cli(repo_root, ["--json"])
+    assert result.returncode == 2
+    assert "multiple profiles are defined" in result.stderr
+
+
+def test_unknown_profile_selector_returns_config_error(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _create_valid_repo(repo_root)
+    _write_override(
+        repo_root,
+        (
+            "version: 1\n"
+            "profiles:\n"
+            "  strict: {}\n"
+        ),
+    )
+
+    result = _run_cli(repo_root, ["--profile", "balanced"])
+    assert result.returncode == 2
+    assert "requested profile" in result.stderr

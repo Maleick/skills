@@ -71,6 +71,8 @@ def test_ci_default_fails_when_invalid_exists(tmp_path: Path) -> None:
     assert "Result: FAIL" in result.stdout
     assert "Policy profile active: no" in result.stdout
     assert "Policy source: default" in result.stdout
+    assert "Policy profile: default" in result.stdout
+    assert "Policy selection: base-default" in result.stdout
     assert "Cache enabled: yes" in result.stdout
     assert "Cache mode: read-write" in result.stdout
 
@@ -246,6 +248,8 @@ def test_ci_override_can_escalate_warning_to_invalid(tmp_path: Path) -> None:
     assert "Policy profile active: yes" in result.stdout
     assert "Policy source: .skill-audit-overrides.yaml" in result.stdout
     assert "Policy mode: severity-overrides" in result.stdout
+    assert "Policy profile: default" in result.stdout
+    assert "Policy selection: legacy-default" in result.stdout
     assert "Policy overrides: tier=0, rule=0, rule+tier=1, total=1" in result.stdout
 
 
@@ -334,3 +338,62 @@ def test_ci_no_cache_mode_reports_disabled_cache(tmp_path: Path) -> None:
     assert result.returncode == 0
     assert "Cache enabled: no" in result.stdout
     assert "Cache mode: disabled" in result.stdout
+
+
+def test_ci_named_profile_selection_is_explicit_and_deterministic(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _write_skill(
+        repo_root,
+        tier="experimental",
+        name="experimental-warning",
+        skill_name="experimental-warning",
+        openai_name="different-name",
+    )
+    _write_override(
+        repo_root,
+        (
+            "version: 1\n"
+            "default_profile: strict\n"
+            "profiles:\n"
+            "  strict:\n"
+            "    rule_tier:\n"
+            "      experimental:\n"
+            "        META-110: invalid\n"
+            "  balanced:\n"
+            "    rule_tier:\n"
+            "      experimental:\n"
+            "        META-110: warning\n"
+        ),
+    )
+
+    strict_default = _run_cli(repo_root, ["--ci"])
+    balanced = _run_cli(repo_root, ["--ci", "--profile", "balanced"])
+    assert strict_default.returncode == 1
+    assert balanced.returncode == 0
+    assert "Policy profile: strict" in strict_default.stdout
+    assert "Policy selection: config-default" in strict_default.stdout
+    assert "Policy profile: balanced" in balanced.stdout
+    assert "Policy selection: explicit" in balanced.stdout
+
+
+def test_ci_unknown_profile_selector_returns_config_error(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _write_skill(
+        repo_root,
+        tier="curated",
+        name="curated-valid",
+        skill_name="curated-valid",
+        openai_name="curated-valid",
+    )
+    _write_override(
+        repo_root,
+        (
+            "version: 1\n"
+            "profiles:\n"
+            "  strict: {}\n"
+        ),
+    )
+
+    result = _run_cli(repo_root, ["--ci", "--profile", "balanced"])
+    assert result.returncode == 2
+    assert "requested profile" in result.stderr

@@ -62,6 +62,18 @@ def test_policy_profile_signature_is_deterministic() -> None:
     assert build_policy_profile_signature(None) == "default"
 
 
+def test_policy_profile_signature_changes_with_profile_name() -> None:
+    profile = OverrideProfile(
+        tier={},
+        rule={"META-110": "warning"},
+        rule_tier={},
+    )
+
+    strict_sig = build_policy_profile_signature(profile, active_profile_name="strict")
+    balanced_sig = build_policy_profile_signature(profile, active_profile_name="balanced")
+    assert strict_sig != balanced_sig
+
+
 def test_rules_signature_is_deterministic() -> None:
     first = build_rules_signature()
     second = build_rules_signature()

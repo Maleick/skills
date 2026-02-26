@@ -74,6 +74,8 @@ def test_render_report_is_deterministic_and_includes_totals() -> None:
                 "source": ".skill-audit-overrides.yaml",
                 "active": True,
                 "mode": "severity-overrides",
+                "profile_name": "strict",
+                "selection": "explicit",
                 "override_counts": {"tier": 1, "rule": 0, "rule_tier": 1, "total": 2},
             },
             "cache": {
@@ -91,6 +93,8 @@ def test_render_report_is_deterministic_and_includes_totals() -> None:
     assert "Policy profile active: yes" in report
     assert "Policy source: .skill-audit-overrides.yaml" in report
     assert "Policy mode: severity-overrides" in report
+    assert "Policy profile: strict" in report
+    assert "Policy selection: explicit" in report
     assert "Policy overrides: tier=1, rule=0, rule+tier=1, total=2" in report
     assert "Cache enabled: yes" in report
     assert "Cache mode: read-write" in report

@@ -31,12 +31,17 @@ def _stable_json(value: object) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
 
 
-def build_policy_profile_signature(override_profile: OverrideProfile | None) -> str:
+def build_policy_profile_signature(
+    override_profile: OverrideProfile | None,
+    *,
+    active_profile_name: str | None = None,
+) -> str:
     """Return deterministic signature for active policy profile inputs."""
     if override_profile is None:
         return "default"
 
     payload = {
+        "profile_name": active_profile_name or "default",
         "tier": {tier: override_profile.tier[tier] for tier in sorted(override_profile.tier)},
         "rule": {rule: override_profile.rule[rule] for rule in sorted(override_profile.rule)},
         "rule_tier": [

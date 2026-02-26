@@ -57,6 +57,9 @@ def test_build_skill_index_core_contract_and_status(tmp_path: Path) -> None:
         "source": "default",
         "active": False,
         "mode": "base-default",
+        "profile_name": "default",
+        "selection": "base-default",
+        "available_profiles": [],
         "override_counts": {"tier": 0, "rule": 0, "rule_tier": 0, "total": 0},
     }
     assert payload["scan"]["cache"] == {
@@ -133,6 +136,9 @@ def test_build_skill_index_uses_provided_scan_metadata(tmp_path: Path) -> None:
             "source": ".skill-audit-overrides.yaml",
             "active": True,
             "mode": "severity-overrides",
+            "profile_name": "strict",
+            "selection": "explicit",
+            "available_profiles": ["balanced", "strict"],
             "override_counts": {"tier": 1, "rule": 1, "rule_tier": 2, "total": 4},
         },
         "cache": {
@@ -162,6 +168,7 @@ def test_build_skill_index_adds_default_policy_profile_when_missing(tmp_path: Pa
     assert payload["scan"]["mode"] == "changed-files"
     assert payload["scan"]["policy_profile"]["source"] == "default"
     assert payload["scan"]["policy_profile"]["active"] is False
+    assert payload["scan"]["policy_profile"]["profile_name"] == "default"
     assert payload["scan"]["cache"] == {
         "enabled": False,
         "mode": "disabled",

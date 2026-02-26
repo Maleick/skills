@@ -97,6 +97,8 @@ def test_markdown_report_grouping_detail_and_valid_summary_only() -> None:
     assert "  - active: no" in report
     assert "  - source: default" in report
     assert "  - mode: base-default" in report
+    assert "  - profile: default" in report
+    assert "  - selection: base-default" in report
     assert "  - overrides: tier=0, rule=0, rule+tier=0, total=0" in report
     assert "- Cache:" in report
     assert "  - enabled: no" in report
