@@ -8,17 +8,21 @@ A repository quality and discovery layer for `/opt/skills` that validates skill 
 
 Maintainers can run one reliable validation workflow that catches structural and metadata drift across all skills before changes are merged.
 
-## Current Milestone Status
+## Current Milestone: v1.2 Governance & Automation
 
-- **v1.0 MVP:** shipped 2026-02-25
-- **v1.1 Performance & Policy:** shipped 2026-02-26
-- **v1.2:** not yet defined
+**Goal:** Expand governance controls and operator productivity without sacrificing deterministic scan/report/gate behavior.
+
+**Target features:**
+- Persistent incremental scan cache for unchanged skills (`PERF-04`).
+- Multiple named override profiles with explicit selector flags (`RULE-03`).
+- Historical quality snapshot generation for trend tracking (`HIST-01`).
+- Opt-in dry-run autofix suggestions for selected finding classes (`FIX-01`).
 
 ## Current State
 
-- **Delivered scope:** validator foundation, metadata integrity rules, deterministic JSON/markdown reporting, CI gate hardening, incremental changed-files scanning, override policy profiles, and override-aware reporting/CI behavior.
-- **Runtime surface:** `python3 -m tools.skill_audit.cli` with full, changed-files, compare-range, JSON/markdown output, and CI gate modes.
-- **Verification status:** all Phase 5-7 verifications passed and milestone audit passed.
+- **Shipped milestones:** v1.0 MVP and v1.1 Performance & Policy.
+- **Delivered runtime surface:** `python3 -m tools.skill_audit.cli` with full/changed-files scan modes, CI gating, deterministic JSON/markdown outputs, and override-aware policy reporting.
+- **Verification status:** all phase verifications passed through Phase 7; v1.1 milestone audit passed.
 - **Quality signal:** `71` passing tests in `tools/skill_audit/tests`.
 
 ## Requirements
@@ -44,24 +48,26 @@ Maintainers can run one reliable validation workflow that catches structural and
 
 ### Active
 
-- [ ] Define v1.2 milestone scope and requirements.
-- [ ] Decide whether to prioritize cache/performance expansion (`PERF-04`) or policy profile expansion (`RULE-03`) first.
+- [ ] Implement persistent scan cache for unchanged skills (`PERF-04`).
+- [ ] Implement named override profile selection model (`RULE-03`).
+- [ ] Add historical quality snapshot artifact generation (`HIST-01`).
+- [ ] Add dry-run autofix suggestion workflows (`FIX-01`).
 
 ### Out of Scope
 
 - Hosted dashboard UI (CLI and file artifacts remain sufficient).
-- Automatic file mutation in validate mode (read-only trust model retained).
-- Style-only prose rewrites unrelated to packaging/contract integrity.
+- Automatic file mutation in validate mode by default (read-only trust model retained).
+- Non-deterministic or timestamp-noisy reporting contracts.
 
 ## Next Milestone Goals
 
-1. Define v1.2 requirements and roadmap via `$gsd-new-milestone --auto`.
-2. Prioritize one major axis for v1.2: performance cache/governance (`PERF-04`, `RULE-03`) or historical/autofix automation (`HIST-01`, `FIX-01`).
-3. Preserve deterministic contracts across JSON, markdown, and CI outputs while extending capabilities.
+1. Cut scan latency for unchanged repositories via deterministic caching.
+2. Add explicit profile-based policy governance for different team/risk contexts.
+3. Introduce longitudinal and remediation-assist artifacts while preserving CI trust.
 
 ## Context
 
-v1.1 completed performance and policy objectives: incremental scan performance, strict override policy configuration, and explicit override-aware reporting/CI semantics. The next milestone should focus on the next highest-leverage capability while keeping deterministic behavior and testability intact.
+v1.2 builds on the stable v1.1 baseline: fast incremental scans, strict overrides, and explicit policy visibility. The milestone focus is to improve scale/governance and operator workflows while keeping outputs deterministic and auditable.
 
 ## Key Decisions
 
@@ -73,6 +79,7 @@ v1.1 completed performance and policy objectives: incremental scan performance, 
 | Add dedicated CI mode with explicit policy controls | CI requires predictable pass/fail semantics | ✓ Delivered in v1.0 |
 | Prioritize incremental scan + override config in v1.1 | Highest leverage for larger repos and varied team policies | ✓ Delivered in v1.1 |
 | Preserve deterministic outputs under override translation | CI trust requires stable, auditable gate behavior | ✓ Delivered in v1.1 |
+| Prioritize cache/profile/history/autofix for v1.2 | Next highest impact on scale, governance, and maintainer efficiency | — Active |
 
 ---
-*Last updated: 2026-02-26 after v1.1 milestone completion*
+*Last updated: 2026-02-26 after v1.2 milestone initialization*

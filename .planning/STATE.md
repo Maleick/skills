@@ -1,9 +1,9 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: performance-policy
-status: milestone_complete
-last_updated: "2026-02-26T02:40:00.000Z"
+milestone: v1.2
+milestone_name: governance-automation
+status: defining_requirements
+last_updated: "2026-02-26T03:05:00.000Z"
 progress:
   total_phases: 7
   completed_phases: 7
@@ -18,22 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-26)
 
 **Core value:** Maintainers can run one reliable validation workflow that catches structural and metadata drift across all skills before changes are merged.
-**Current focus:** Milestone v1.1 archived; define v1.2 scope and requirements.
+**Current focus:** Define v1.2 requirements and roadmap for governance and automation expansion.
 
 ## Current Position
 
-Milestone: v1.1 Performance & Policy
-Status: Complete and archived
-Last activity: 2026-02-26 — milestone archival and closeout complete
+Phase: Not started (defining requirements)
+Plan: -
+Status: Defining requirements
+Last activity: 2026-02-26 — Milestone v1.2 started
 
-Progress: [██████████] 100%
-
-## Performance Metrics
-
-**Velocity:**
-- Total phases completed: 7
-- Total plans completed: 19
-- Milestones shipped: 2
+Progress: [██████████] 100% of v1.1 complete; v1.2 planning in progress
 
 ## Accumulated Context
 
@@ -50,14 +44,15 @@ Progress: [██████████] 100%
 
 ### Pending Todos
 
-- Define v1.2 milestone goals and requirements.
+- Define v1.2 requirements (`PERF-04`, `RULE-03`, `HIST-01`, `FIX-01`).
+- Create v1.2 roadmap phases and traceability mappings.
 
 ### Blockers/Concerns
 
-- Tooling currently defaults `init milestone-op` to `v1.0`; milestone scope should continue to be validated against ROADMAP headings until fixed.
+- Tooling currently defaults `init new-milestone` and `init milestone-op` milestone detection to legacy values; milestone scope should be verified against ROADMAP headings.
 
 ## Session Continuity
 
-Last session: 2026-02-25 20:40:00 -0600
-Stopped at: Milestone v1.1 completion finalized
-Resume file: .planning/MILESTONES.md
+Last session: 2026-02-25 21:05:00 -0600
+Stopped at: Milestone v1.2 initialized
+Resume file: .planning/PROJECT.md
