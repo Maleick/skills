@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: governance-automation
 status: ready_to_plan
-last_updated: "2026-02-26T18:20:05.000Z"
+last_updated: "2026-02-26T18:30:18.000Z"
 progress:
   total_phases: 10
-  completed_phases: 9
+  completed_phases: 10
   total_plans: 28
-  completed_plans: 25
+  completed_plans: 28
 ---
 
 # Project State
@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-26)
 
 **Core value:** Maintainers can run one reliable validation workflow that catches structural and metadata drift across all skills before changes are merged.
-**Current focus:** Phase 10 context captured; ready to plan.
+**Current focus:** Phase 10 complete; milestone closeout ready.
 
 ## Current Position
 
 Phase: 10 of 10 (History and Autofix Suggestions)
-Plan: 0 plans created
-Status: Ready to discuss/plan
-Last activity: 2026-02-26 — Phase 10 context captured
+Plan: 3 of 3 plans complete
+Status: Phase complete; ready for milestone audit
+Last activity: 2026-02-26 — Phase 10 execution complete
 
-Progress: [█████████░] 90%
+Progress: [██████████] 100%
 
 ## Accumulated Context
 
@@ -50,12 +50,14 @@ Progress: [█████████░] 90%
 - History snapshots in Phase 10 are opt-in, deterministic, and non-sensitive (relative path + metadata only).
 - Autofix in Phase 10 remains dry-run only with explicit opt-in output controls.
 - Trend summaries are additive and must not alter existing report/gate contracts.
+- History/trend flags are now available (`--history-out`, `--trend`, `--trend-baseline`, `--trend-out`).
+- Dry-run autofix outputs are now available (`--autofix`, `--autofix-out`) with deterministic supported/unsupported reporting.
 
 ### Pending Todos
 
-- Plan Phase 10 (`$gsd-plan-phase 10 --auto`).
-- Execute Phase 10 plans and verify HIST-01/FIX-01 completion.
 - Run milestone closeout (`$gsd-audit-milestone --auto`, `$gsd-complete-milestone --auto`).
+- Start next milestone (`$gsd-new-milestone --auto`) after closeout.
+- Discuss next phase for the new milestone (`$gsd-discuss-phase 11 --auto` once roadmap is created).
 
 ### Blockers/Concerns
 
@@ -63,6 +65,6 @@ Progress: [█████████░] 90%
 
 ## Session Continuity
 
-Last session: 2026-02-26 12:20:05 -0600
-Stopped at: Phase 10 context gathered
-Resume file: .planning/phases/10-history-and-autofix-suggestions/10-CONTEXT.md
+Last session: 2026-02-26 12:30:18 -0600
+Stopped at: Phase 10 execution complete
+Resume file: .planning/phases/10-history-and-autofix-suggestions/10-VERIFICATION.md

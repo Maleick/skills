@@ -17,11 +17,11 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Historical Visibility
 
-- [ ] **HIST-01**: Maintainer can generate deterministic historical quality snapshots for trend tracking across runs.
+- [x] **HIST-01**: Maintainer can generate deterministic historical quality snapshots for trend tracking across runs.
 
 ### Remediation Assistance
 
-- [ ] **FIX-01**: Maintainer can generate dry-run autofix suggestions for supported finding classes with explicit non-mutating output.
+- [x] **FIX-01**: Maintainer can generate dry-run autofix suggestions for supported finding classes with explicit non-mutating output.
 
 ## Future Requirements (Deferred)
 
@@ -49,8 +49,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | PERF-04 | Phase 8 | Complete |
 | RULE-03 | Phase 9 | Complete |
-| HIST-01 | Phase 10 | Pending |
-| FIX-01 | Phase 10 | Pending |
+| HIST-01 | Phase 10 | Complete |
+| FIX-01 | Phase 10 | Complete |
 
 **Coverage:**
 - v1.2 requirements: 4 total
@@ -59,4 +59,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-26*
-*Last updated: 2026-02-26 phase 9 execution complete*
+*Last updated: 2026-02-26 phase 10 execution complete*

@@ -4,7 +4,7 @@
 
 - ✅ **v1.0 MVP** — shipped 2026-02-25 (Phases 1-4, 11 plans). Archive: `.planning/milestones/v1.0-ROADMAP.md`
 - ✅ **v1.1 Performance & Policy** — shipped 2026-02-26 (Phases 5-7, 8 plans). Archive: `.planning/milestones/v1.1-ROADMAP.md`
-- 🚧 **v1.2 Governance & Automation** — planned (Phases 8-10)
+- 🚧 **v1.2 Governance & Automation** — phase execution complete, pending milestone audit/closeout (Phases 8-10)
 
 ## Phases
 
@@ -31,7 +31,7 @@
 
 - [x] **Phase 8: Persistent Cache Engine** - Add deterministic unchanged-skill cache pathways and cache correctness gates. (completed 2026-02-26)
 - [x] **Phase 9: Named Policy Profiles** - Add multi-profile override governance with explicit profile selection controls. (completed 2026-02-26)
-- [ ] **Phase 10: History and Autofix Suggestions** - Add trend snapshot artifacts and dry-run remediation suggestions.
+- [x] **Phase 10: History and Autofix Suggestions** - Add trend snapshot artifacts and dry-run remediation suggestions. (completed 2026-02-26)
 
 ## Phase Details
 
@@ -76,9 +76,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 10-01: Implement snapshot schema and deterministic persistence pipeline.
-- [ ] 10-02: Add trend summary rendering and compatibility checks.
-- [ ] 10-03: Implement dry-run autofix suggestion engine and safety-focused tests.
+- [x] 10-01: Implement snapshot schema and deterministic persistence pipeline.
+- [x] 10-02: Add trend summary rendering and compatibility checks.
+- [x] 10-03: Implement dry-run autofix suggestion engine and safety-focused tests.
 
 ## Progress
 
@@ -96,4 +96,4 @@ Phases execute in numeric order: 8 → 9 → 10
 | 7. Override-Aware Reporting and CI | v1.1 | 2/2 | Complete | 2026-02-26 |
 | 8. Persistent Cache Engine | v1.2 | 3/3 | Complete | 2026-02-26 |
 | 9. Named Policy Profiles | v1.2 | 3/3 | Complete | 2026-02-26 |
-| 10. History and Autofix Suggestions | v1.2 | 0/3 | Not started | - |
+| 10. History and Autofix Suggestions | v1.2 | 3/3 | Complete | 2026-02-26 |
