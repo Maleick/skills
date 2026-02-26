@@ -8,12 +8,25 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
+from .autofix import (
+    build_autofix_suggestions,
+    render_autofix_markdown,
+    render_autofix_text,
+    summarize_autofix_suggestions,
+)
 from .cache import (
     SkillAuditCache,
     build_policy_profile_signature,
     build_rules_signature,
 )
 from .findings import Finding
+from .history import (
+    build_history_snapshot,
+    build_trend_summary,
+    load_history_snapshot,
+    render_trend_summary,
+    write_history_snapshot,
+)
 from .indexing import build_skill_index
 from .markdown_report import render_markdown_report
 from .override_config import (
@@ -94,6 +107,32 @@ def _build_parser() -> argparse.ArgumentParser:
             "Optional output directory for stable filenames when explicit paths "
             "are not provided (`skill-index.json`, `skill-remediation.md`)."
         ),
+    )
+    parser.add_argument(
+        "--history-out",
+        help="Write deterministic history snapshot JSON to this file path.",
+    )
+    parser.add_argument(
+        "--trend",
+        action="store_true",
+        help="Render trend summary in stdout output (requires optional baseline for deltas).",
+    )
+    parser.add_argument(
+        "--trend-baseline",
+        help="Baseline history snapshot file used for trend comparison.",
+    )
+    parser.add_argument(
+        "--trend-out",
+        help="Write trend summary text to this file path.",
+    )
+    parser.add_argument(
+        "--autofix",
+        action="store_true",
+        help="Render dry-run autofix suggestions in stdout output.",
+    )
+    parser.add_argument(
+        "--autofix-out",
+        help="Write dry-run autofix suggestions markdown to this file path.",
     )
     parser.add_argument(
         "--force-overwrite",
@@ -202,6 +241,16 @@ def _validate_ci_config(
 def _validate_scan_config(changed_files_mode: bool, compare_range: str | None) -> None:
     if compare_range is not None and not changed_files_mode:
         raise ValueError("--compare-range requires --changed-files.")
+
+
+def _validate_extended_output_config(
+    *,
+    trend: bool,
+    trend_baseline: str | None,
+    trend_out: str | None,
+) -> None:
+    if trend_baseline is not None and not (trend or trend_out is not None):
+        raise ValueError("--trend-baseline requires --trend or --trend-out.")
 
 
 def _filter_findings_by_tier(
@@ -375,6 +424,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             verbose_ci=args.verbose_ci,
         )
         _validate_scan_config(args.changed_files, args.compare_range)
+        _validate_extended_output_config(
+            trend=args.trend,
+            trend_baseline=args.trend_baseline,
+            trend_out=args.trend_out,
+        )
     except ValueError as exc:
         print(f"runtime-error: {exc}", file=sys.stderr)
         return 2
@@ -466,11 +520,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         repo_root=repo_root,
         scan_metadata=scan_metadata,
     )
-    markdown_payload = render_markdown_report(index_payload)
     totals = summarize_findings(ordered)
 
     json_out: Path | None = Path(args.json_out) if args.json_out else None
     markdown_out: Path | None = Path(args.markdown_out) if args.markdown_out else None
+    history_out: Path | None = Path(args.history_out) if args.history_out else None
+    trend_out: Path | None = Path(args.trend_out) if args.trend_out else None
+    autofix_out: Path | None = Path(args.autofix_out) if args.autofix_out else None
 
     if args.output_dir:
         output_dir = Path(args.output_dir)
@@ -478,6 +534,54 @@ def main(argv: Sequence[str] | None = None) -> int:
             json_out = output_dir / "skill-index.json"
         if markdown_out is None:
             markdown_out = output_dir / "skill-remediation.md"
+
+    trend_requested = args.trend or trend_out is not None
+    autofix_requested = args.autofix or autofix_out is not None
+    history_requested = (
+        history_out is not None or trend_requested or args.trend_baseline is not None
+    )
+
+    history_snapshot: dict[str, object] | None = None
+    if history_requested:
+        history_snapshot = build_history_snapshot(index_payload)
+
+    trend_summary: dict[str, object] | None = None
+    if trend_requested:
+        baseline_snapshot: dict[str, object] | None = None
+        baseline_message: str | None = None
+        if args.trend_baseline is not None:
+            baseline_path = Path(args.trend_baseline)
+            if baseline_path.exists():
+                try:
+                    baseline_snapshot = load_history_snapshot(baseline_path)
+                except (OSError, ValueError, json.JSONDecodeError) as exc:
+                    print(f"runtime-error: {exc}", file=sys.stderr)
+                    return 2
+            else:
+                baseline_message = f"Baseline snapshot not found: {baseline_path}"
+
+        trend_summary = build_trend_summary(
+            history_snapshot if history_snapshot is not None else build_history_snapshot(index_payload),
+            baseline_snapshot,
+        )
+        if baseline_message is not None:
+            trend_summary["message"] = baseline_message
+        if args.trend_baseline is not None:
+            trend_summary["baseline_path"] = args.trend_baseline
+        index_payload["trend"] = trend_summary
+
+    autofix_suggestions = []
+    autofix_summary: dict[str, object] | None = None
+    if autofix_requested:
+        autofix_suggestions = build_autofix_suggestions(ordered)
+        autofix_summary = summarize_autofix_suggestions(autofix_suggestions)
+        index_payload["autofix"] = {
+            "mode": "dry-run",
+            "summary": autofix_summary,
+            "suggestions": [item.to_dict() for item in autofix_suggestions],
+        }
+
+    markdown_payload = render_markdown_report(index_payload)
 
     if json_out is not None:
         try:
@@ -495,33 +599,68 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"runtime-error: {exc}", file=sys.stderr)
             return 2
 
+    if history_out is not None:
+        try:
+            snapshot = history_snapshot or build_history_snapshot(index_payload)
+            write_history_snapshot(history_out, snapshot, args.force_overwrite)
+            print(f"Wrote history snapshot: {history_out}")
+        except (OSError, ValueError) as exc:
+            print(f"runtime-error: {exc}", file=sys.stderr)
+            return 2
+
+    if trend_out is not None and trend_summary is not None:
+        try:
+            _write_text(trend_out, render_trend_summary(trend_summary), args.force_overwrite)
+            print(f"Wrote trend summary: {trend_out}")
+        except OSError as exc:
+            print(f"runtime-error: {exc}", file=sys.stderr)
+            return 2
+
+    if autofix_out is not None:
+        try:
+            _write_text(
+                autofix_out,
+                render_autofix_markdown(autofix_suggestions),
+                args.force_overwrite,
+            )
+            print(f"Wrote autofix suggestions: {autofix_out}")
+        except OSError as exc:
+            print(f"runtime-error: {exc}", file=sys.stderr)
+            return 2
+
     if args.ci and max_severity is not None:
         in_scope_findings = _filter_findings_by_tier(ordered, parsed_tiers)
         policy_failed = _is_gate_failure(in_scope_findings, max_severity=max_severity)
         if args.json:
             print(json.dumps(index_payload, indent=2))
         else:
-            print(
-                _render_ci_report(
-                    in_scope_findings=in_scope_findings,
-                    scan_metadata=scan_metadata,
-                    max_severity=max_severity,
-                    tiers=parsed_tiers,
-                    verbose=args.verbose_ci,
-                )
+            ci_output = _render_ci_report(
+                in_scope_findings=in_scope_findings,
+                scan_metadata=scan_metadata,
+                max_severity=max_severity,
+                tiers=parsed_tiers,
+                verbose=args.verbose_ci,
             )
+            if args.trend and trend_summary is not None:
+                ci_output = f"{ci_output}\n\n{render_trend_summary(trend_summary)}"
+            if args.autofix and autofix_summary is not None:
+                ci_output = f"{ci_output}\n\n{render_autofix_text(autofix_suggestions)}"
+            print(ci_output)
         return 1 if policy_failed else 0
 
     if args.json:
         print(json.dumps(index_payload, indent=2))
     else:
-        print(
-            render_report(
-                ordered,
-                scanned_skill_count=len(skill_dirs),
-                scan_metadata=scan_metadata,
-            )
+        report_output = render_report(
+            ordered,
+            scanned_skill_count=len(skill_dirs),
+            scan_metadata=scan_metadata,
         )
+        if args.trend and trend_summary is not None:
+            report_output = f"{report_output}\n\n{render_trend_summary(trend_summary)}"
+        if args.autofix and autofix_summary is not None:
+            report_output = f"{report_output}\n\n{render_autofix_text(autofix_suggestions)}"
+        print(report_output)
 
     return 1 if totals["invalid"] > 0 else 0
 

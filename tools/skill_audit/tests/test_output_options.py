@@ -614,3 +614,86 @@ def test_unknown_profile_selector_returns_config_error(tmp_path: Path) -> None:
     result = _run_cli(repo_root, ["--profile", "balanced"])
     assert result.returncode == 2
     assert "requested profile" in result.stderr
+
+
+def test_history_snapshot_output_is_deterministic_and_safe(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _create_valid_repo(repo_root)
+    history_out = tmp_path / "history.json"
+
+    first = _run_cli(repo_root, ["--history-out", str(history_out), "--no-cache"])
+    assert first.returncode == 0
+    before = history_out.read_text(encoding="utf-8")
+
+    second = _run_cli(repo_root, ["--history-out", str(history_out), "--no-cache"])
+    assert second.returncode == 2
+    assert "Output file already exists" in second.stderr
+
+    third = _run_cli(
+        repo_root,
+        ["--history-out", str(history_out), "--force-overwrite", "--no-cache"],
+    )
+    assert third.returncode == 0
+    after = history_out.read_text(encoding="utf-8")
+    assert before == after
+
+
+def test_trend_without_baseline_is_non_fatal(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _create_valid_repo(repo_root)
+
+    result = _run_cli(repo_root, ["--trend", "--no-cache"])
+    assert result.returncode == 0
+    assert "Trend Summary" in result.stdout
+    assert "status: no-baseline" in result.stdout
+
+
+def test_trend_and_autofix_are_additive_in_json_mode(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _create_valid_repo(repo_root)
+    baseline_out = tmp_path / "baseline.json"
+
+    baseline = _run_cli(repo_root, ["--history-out", str(baseline_out), "--no-cache"])
+    assert baseline.returncode == 0
+
+    _create_mismatch_skill(repo_root, "skills/.curated/demo", "demo")
+    changed = _run_cli(
+        repo_root,
+        [
+            "--json",
+            "--trend",
+            "--trend-baseline",
+            str(baseline_out),
+            "--autofix",
+            "--no-cache",
+        ],
+    )
+    assert changed.returncode == 1
+    payload = json.loads(changed.stdout)
+    assert payload["trend"]["status"] == "ok"
+    assert payload["trend"]["finding_delta"] > 0
+    assert payload["autofix"]["mode"] == "dry-run"
+    assert payload["autofix"]["summary"]["total"] > 0
+
+
+def test_autofix_out_writes_markdown_report(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _create_mismatch_skill(repo_root, "skills/.experimental/demo", "demo")
+    autofix_out = tmp_path / "autofix.md"
+
+    result = _run_cli(repo_root, ["--autofix-out", str(autofix_out)])
+    assert result.returncode == 0
+    assert autofix_out.exists()
+    text = autofix_out.read_text(encoding="utf-8")
+    assert "# Skill Audit Autofix Suggestions (Dry-Run)" in text
+    assert "Suggestions" in text
+
+
+def test_trend_baseline_requires_trend_or_trend_out(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _create_valid_repo(repo_root)
+    baseline_out = tmp_path / "baseline.json"
+
+    result = _run_cli(repo_root, ["--trend-baseline", str(baseline_out)])
+    assert result.returncode == 2
+    assert "--trend-baseline requires --trend or --trend-out" in result.stderr

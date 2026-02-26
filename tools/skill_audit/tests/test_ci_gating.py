@@ -397,3 +397,24 @@ def test_ci_unknown_profile_selector_returns_config_error(tmp_path: Path) -> Non
     result = _run_cli(repo_root, ["--ci", "--profile", "balanced"])
     assert result.returncode == 2
     assert "requested profile" in result.stderr
+
+
+def test_ci_autofix_output_is_opt_in_and_does_not_change_gate_result(
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "repo"
+    _write_skill(
+        repo_root,
+        tier="curated",
+        name="curated-invalid",
+        skill_name="curated-invalid",
+        openai_name="different-name",
+    )
+
+    baseline = _run_cli(repo_root, ["--ci", "--no-cache"])
+    with_autofix = _run_cli(repo_root, ["--ci", "--autofix", "--no-cache"])
+
+    assert baseline.returncode == 1
+    assert with_autofix.returncode == 1
+    assert "Autofix Suggestions (dry-run)" not in baseline.stdout
+    assert "Autofix Suggestions (dry-run)" in with_autofix.stdout

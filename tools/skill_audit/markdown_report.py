@@ -43,6 +43,8 @@ def render_markdown_report(index_payload: dict[str, Any]) -> str:
     cache_misses = int(cache.get("misses", 0))
     cache_invalidations = int(cache.get("invalidations", 0))
     cache_errors = int(cache.get("errors", 0))
+    trend = scan.get("trend") if isinstance(scan.get("trend"), dict) else index_payload.get("trend")
+    autofix = index_payload.get("autofix", {})
     lines: list[str] = [
         "# Skill Audit Remediation Report",
         "",
@@ -97,6 +99,62 @@ def render_markdown_report(index_payload: dict[str, Any]) -> str:
             f"  - {tier}: {tier_total['skill_count']} skills, "
             f"{tier_total['finding_count']} findings"
         )
+
+    if isinstance(trend, dict):
+        status = str(trend.get("status", "no-baseline"))
+        lines.extend(["", "## Trend Summary", f"- Status: {status}"])
+        if status == "ok":
+            lines.append(f"- Findings delta: {trend.get('finding_delta', 0)}")
+            severity_deltas = trend.get("severity_deltas", {})
+            if isinstance(severity_deltas, dict):
+                lines.append("- Severity deltas:")
+                for severity in ("valid", "warning", "invalid"):
+                    lines.append(f"  - {severity}: {int(severity_deltas.get(severity, 0))}")
+            tier_deltas = trend.get("tier_deltas", {})
+            if isinstance(tier_deltas, dict):
+                lines.append("- Tier deltas:")
+                for tier in ("system", "curated", "experimental", "unknown"):
+                    if tier not in tier_deltas:
+                        continue
+                    lines.append(f"  - {tier}: {int(tier_deltas.get(tier, 0))}")
+        else:
+            lines.append(
+                f"- Message: {trend.get('message', 'No baseline snapshot available for comparison.')}"
+            )
+
+    if isinstance(autofix, dict):
+        summary_block = autofix.get("summary", {})
+        if isinstance(summary_block, dict):
+            lines.extend(
+                [
+                    "",
+                    "## Autofix Suggestions (Dry-Run)",
+                    f"- Total: {int(summary_block.get('total', 0))}",
+                    f"- Supported: {int(summary_block.get('supported', 0))}",
+                    f"- Unsupported: {int(summary_block.get('unsupported', 0))}",
+                ]
+            )
+
+            raw_suggestions = autofix.get("suggestions", [])
+            if isinstance(raw_suggestions, list) and raw_suggestions:
+                lines.append("- Suggestions:")
+                ordered_suggestions = sorted(
+                    (
+                        item
+                        for item in raw_suggestions
+                        if isinstance(item, dict)
+                    ),
+                    key=lambda item: (
+                        str(item.get("path", "")),
+                        str(item.get("rule_id", "")),
+                    ),
+                )
+                for item in ordered_suggestions:
+                    status = "supported" if bool(item.get("supported", False)) else "unsupported"
+                    lines.append(
+                        f"  - [{status}] `{item.get('rule_id', '<unknown>')}` `{item.get('path', '<unknown>')}`: "
+                        f"{item.get('suggested_change', '')}"
+                    )
 
     skills = index_payload["skills"]
     for severity, section_title in SEVERITY_SECTIONS:
