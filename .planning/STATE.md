@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: governance-automation
 status: ready_to_plan
-last_updated: "2026-02-26T18:10:39.000Z"
+last_updated: "2026-02-26T18:20:05.000Z"
 progress:
   total_phases: 10
   completed_phases: 9
@@ -18,14 +18,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-26)
 
 **Core value:** Maintainers can run one reliable validation workflow that catches structural and metadata drift across all skills before changes are merged.
-**Current focus:** Phase 9 complete; prepare and plan Phase 10.
+**Current focus:** Phase 10 context captured; ready to plan.
 
 ## Current Position
 
 Phase: 10 of 10 (History and Autofix Suggestions)
 Plan: 0 plans created
 Status: Ready to discuss/plan
-Last activity: 2026-02-26 — Phase 9 execution complete
+Last activity: 2026-02-26 — Phase 10 context captured
 
 Progress: [█████████░] 90%
 
@@ -47,10 +47,13 @@ Progress: [█████████░] 90%
 - Override policy supports named profiles with strict schema validation in `.skill-audit-overrides.yaml`.
 - Active profile selection is deterministic (`--profile` explicit > config default > single profile) and fail-fast on ambiguity.
 - Policy metadata now includes additive profile identity (`profile_name`, `selection`, `available_profiles`) across outputs.
+- History snapshots in Phase 10 are opt-in, deterministic, and non-sensitive (relative path + metadata only).
+- Autofix in Phase 10 remains dry-run only with explicit opt-in output controls.
+- Trend summaries are additive and must not alter existing report/gate contracts.
 
 ### Pending Todos
 
-- Discuss/plan Phase 10 (`$gsd-discuss-phase 10 --auto` or `$gsd-plan-phase 10 --auto`).
+- Plan Phase 10 (`$gsd-plan-phase 10 --auto`).
 - Execute Phase 10 plans and verify HIST-01/FIX-01 completion.
 - Run milestone closeout (`$gsd-audit-milestone --auto`, `$gsd-complete-milestone --auto`).
 
@@ -60,6 +63,6 @@ Progress: [█████████░] 90%
 
 ## Session Continuity
 
-Last session: 2026-02-26 12:10:39 -0600
-Stopped at: Phase 9 execution complete
-Resume file: .planning/phases/09-named-policy-profiles/09-VERIFICATION.md
+Last session: 2026-02-26 12:20:05 -0600
+Stopped at: Phase 10 context gathered
+Resume file: .planning/phases/10-history-and-autofix-suggestions/10-CONTEXT.md
