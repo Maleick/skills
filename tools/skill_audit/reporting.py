@@ -51,6 +51,31 @@ def _policy_profile_from_scan_metadata(
     return active, source, mode, counts
 
 
+def _cache_profile_from_scan_metadata(
+    scan_metadata: dict[str, object] | None,
+) -> tuple[bool, str, dict[str, int]]:
+    enabled = False
+    mode = "disabled"
+    stats = {"hits": 0, "misses": 0, "invalidations": 0, "errors": 0}
+
+    if scan_metadata is None:
+        return enabled, mode, stats
+
+    raw_cache = scan_metadata.get("cache")
+    if not isinstance(raw_cache, dict):
+        return enabled, mode, stats
+
+    enabled = bool(raw_cache.get("enabled", False))
+    mode = str(raw_cache.get("mode", mode))
+    stats = {
+        "hits": int(raw_cache.get("hits", 0)),
+        "misses": int(raw_cache.get("misses", 0)),
+        "invalidations": int(raw_cache.get("invalidations", 0)),
+        "errors": int(raw_cache.get("errors", 0)),
+    }
+    return enabled, mode, stats
+
+
 def render_report(
     findings: Iterable[Finding],
     scanned_skill_count: int,
@@ -69,6 +94,9 @@ def render_report(
     policy_source = "default"
     policy_mode = "base-default"
     policy_counts = {"tier": 0, "rule": 0, "rule_tier": 0, "total": 0}
+    cache_enabled = False
+    cache_mode = "disabled"
+    cache_stats = {"hits": 0, "misses": 0, "invalidations": 0, "errors": 0}
     if scan_metadata is not None:
         mode = str(scan_metadata.get("mode", mode))
         compare_range = scan_metadata.get("compare_range")
@@ -83,6 +111,7 @@ def render_report(
         policy_mode,
         policy_counts,
     ) = _policy_profile_from_scan_metadata(scan_metadata)
+    cache_enabled, cache_mode, cache_stats = _cache_profile_from_scan_metadata(scan_metadata)
 
     lines = [
         "Skill Audit Report",
@@ -105,6 +134,15 @@ def render_report(
             f"rule={policy_counts['rule']}, "
             f"rule+tier={policy_counts['rule_tier']}, "
             f"total={policy_counts['total']}"
+        ),
+        f"Cache enabled: {'yes' if cache_enabled else 'no'}",
+        f"Cache mode: {cache_mode}",
+        (
+            "Cache stats: "
+            f"hits={cache_stats['hits']}, "
+            f"misses={cache_stats['misses']}, "
+            f"invalidations={cache_stats['invalidations']}, "
+            f"errors={cache_stats['errors']}"
         ),
         "",
     ]

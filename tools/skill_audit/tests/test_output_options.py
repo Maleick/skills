@@ -156,11 +156,14 @@ def test_existing_output_overwrites_with_force(tmp_path: Path) -> None:
     _create_valid_repo(repo_root)
     json_out = tmp_path / "index.json"
 
-    first = _run_cli(repo_root, ["--json-out", str(json_out)])
+    first = _run_cli(repo_root, ["--json-out", str(json_out), "--no-cache"])
     assert first.returncode == 0
     before = json_out.read_text(encoding="utf-8")
 
-    second = _run_cli(repo_root, ["--json-out", str(json_out), "--force-overwrite"])
+    second = _run_cli(
+        repo_root,
+        ["--json-out", str(json_out), "--force-overwrite", "--no-cache"],
+    )
     assert second.returncode == 0
     after = json_out.read_text(encoding="utf-8")
     assert before == after
@@ -171,19 +174,19 @@ def test_repeated_runs_are_deterministic(tmp_path: Path) -> None:
     _create_valid_repo(repo_root)
     markdown_out = tmp_path / "report.md"
 
-    json_first = _run_cli(repo_root, ["--json"])
-    json_second = _run_cli(repo_root, ["--json"])
+    json_first = _run_cli(repo_root, ["--json", "--no-cache"])
+    json_second = _run_cli(repo_root, ["--json", "--no-cache"])
     assert json_first.returncode == 0
     assert json_second.returncode == 0
     assert json_first.stdout == json_second.stdout
 
-    md_first = _run_cli(repo_root, ["--markdown-out", str(markdown_out)])
+    md_first = _run_cli(repo_root, ["--markdown-out", str(markdown_out), "--no-cache"])
     assert md_first.returncode == 0
     md_before = markdown_out.read_text(encoding="utf-8")
 
     md_second = _run_cli(
         repo_root,
-        ["--markdown-out", str(markdown_out), "--force-overwrite"],
+        ["--markdown-out", str(markdown_out), "--force-overwrite", "--no-cache"],
     )
     assert md_second.returncode == 0
     md_after = markdown_out.read_text(encoding="utf-8")
@@ -261,6 +264,14 @@ def test_changed_files_mode_json_reports_scope_and_counts(tmp_path: Path) -> Non
         "active": False,
         "mode": "base-default",
         "override_counts": {"tier": 0, "rule": 0, "rule_tier": 0, "total": 0},
+    }
+    assert payload["scan"]["cache"] == {
+        "enabled": True,
+        "mode": "read-write",
+        "hits": 0,
+        "misses": 1,
+        "invalidations": 0,
+        "errors": 0,
     }
     assert [skill["path"] for skill in payload["skills"]] == ["skills/.curated/alpha"]
 
@@ -434,3 +445,83 @@ def test_json_output_includes_active_policy_profile_metadata(tmp_path: Path) -> 
         "mode": "severity-overrides",
         "override_counts": {"tier": 1, "rule": 1, "rule_tier": 1, "total": 3},
     }
+    assert payload["scan"]["cache"]["enabled"] is True
+    assert payload["scan"]["cache"]["mode"] == "read-write"
+
+
+def test_cache_parity_enabled_vs_disabled(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _create_mismatch_skill(repo_root, "skills/.experimental/demo", "demo")
+
+    no_cache = _run_cli(repo_root, ["--json", "--no-cache"])
+    cache_first = _run_cli(repo_root, ["--json"])
+    cache_second = _run_cli(repo_root, ["--json"])
+
+    assert no_cache.returncode == 0
+    assert cache_first.returncode == 0
+    assert cache_second.returncode == 0
+
+    no_cache_payload = json.loads(no_cache.stdout)
+    cache_first_payload = json.loads(cache_first.stdout)
+    cache_second_payload = json.loads(cache_second.stdout)
+
+    assert no_cache_payload["summary"] == cache_first_payload["summary"] == cache_second_payload["summary"]
+    assert no_cache_payload["skills"] == cache_first_payload["skills"] == cache_second_payload["skills"]
+    assert cache_first_payload["scan"]["cache"]["hits"] == 0
+    assert cache_first_payload["scan"]["cache"]["misses"] == 1
+    assert cache_second_payload["scan"]["cache"]["hits"] == 1
+    assert cache_second_payload["scan"]["cache"]["misses"] == 0
+
+
+def test_no_cache_flag_disables_cache_metadata(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _create_valid_repo(repo_root)
+
+    result = _run_cli(repo_root, ["--json", "--no-cache"])
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert payload["scan"]["cache"] == {
+        "enabled": False,
+        "mode": "disabled",
+        "hits": 0,
+        "misses": 0,
+        "invalidations": 0,
+        "errors": 0,
+    }
+
+
+def test_changed_files_cache_ignores_cache_artifact_in_scope_counts(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _init_git_repo(repo_root)
+    _create_valid_skill(repo_root, "skills/.curated/alpha", "alpha")
+    _create_valid_skill(repo_root, "skills/.curated/bravo", "bravo")
+    _git(repo_root, "add", ".")
+    _git(repo_root, "commit", "-m", "baseline")
+
+    (repo_root / "skills/.curated/alpha/SKILL.md").write_text(
+        (
+            "---\n"
+            "name: alpha\n"
+            "description: Demo skill fixture.\n"
+            "---\n\n"
+            "# Alpha\n"
+            "changed\n"
+        ),
+        encoding="utf-8",
+    )
+
+    first = _run_cli(repo_root, ["--changed-files", "--json"])
+    second = _run_cli(repo_root, ["--changed-files", "--json"])
+
+    assert first.returncode == 0
+    assert second.returncode == 0
+
+    first_payload = json.loads(first.stdout)
+    second_payload = json.loads(second.stdout)
+
+    assert first_payload["scan"]["changed_file_count"] == 1
+    assert second_payload["scan"]["changed_file_count"] == 1
+    assert first_payload["scan"]["changed_files"] == ["skills/.curated/alpha/SKILL.md"]
+    assert second_payload["scan"]["changed_files"] == ["skills/.curated/alpha/SKILL.md"]
+    assert first_payload["scan"]["cache"]["misses"] == 1
+    assert second_payload["scan"]["cache"]["hits"] == 1

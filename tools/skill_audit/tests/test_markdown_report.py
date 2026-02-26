@@ -98,6 +98,10 @@ def test_markdown_report_grouping_detail_and_valid_summary_only() -> None:
     assert "  - source: default" in report
     assert "  - mode: base-default" in report
     assert "  - overrides: tier=0, rule=0, rule+tier=0, total=0" in report
+    assert "- Cache:" in report
+    assert "  - enabled: no" in report
+    assert "  - mode: disabled" in report
+    assert "  - stats: hits=0, misses=0, invalidations=0, errors=0" in report
     assert "  - valid: 1" in report
     assert "`META-001` `skills/.system/alpha/SKILL.md`" in report
     assert "Fix: add file" in report

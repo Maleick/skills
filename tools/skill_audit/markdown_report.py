@@ -34,6 +34,13 @@ def render_markdown_report(index_payload: dict[str, Any]) -> str:
         }
     else:
         policy_counts = {"tier": 0, "rule": 0, "rule_tier": 0, "total": 0}
+    cache = scan.get("cache", {})
+    cache_enabled = bool(cache.get("enabled", False))
+    cache_mode = str(cache.get("mode", "disabled"))
+    cache_hits = int(cache.get("hits", 0))
+    cache_misses = int(cache.get("misses", 0))
+    cache_invalidations = int(cache.get("invalidations", 0))
+    cache_errors = int(cache.get("errors", 0))
     lines: list[str] = [
         "# Skill Audit Remediation Report",
         "",
@@ -64,6 +71,16 @@ def render_markdown_report(index_payload: dict[str, Any]) -> str:
             f"rule={policy_counts['rule']}, "
             f"rule+tier={policy_counts['rule_tier']}, "
             f"total={policy_counts['total']}"
+        ),
+        "- Cache:",
+        f"  - enabled: {'yes' if cache_enabled else 'no'}",
+        f"  - mode: {cache_mode}",
+        (
+            "  - stats: "
+            f"hits={cache_hits}, "
+            f"misses={cache_misses}, "
+            f"invalidations={cache_invalidations}, "
+            f"errors={cache_errors}"
         ),
         "- Tier totals:",
     ]

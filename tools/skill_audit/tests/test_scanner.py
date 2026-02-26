@@ -166,3 +166,20 @@ def test_discover_changed_files_invalid_range_raises(tmp_path: Path) -> None:
 
     with pytest.raises(RuntimeError):
         discover_changed_files(repo_root, compare_range="HEAD~99..HEAD")
+
+
+def test_discover_changed_files_ignores_cache_artifacts(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _init_git_repo(repo_root)
+    (repo_root / "skills/.curated/alpha").mkdir(parents=True)
+    (repo_root / "skills/.curated/alpha/SKILL.md").write_text("v1\n", encoding="utf-8")
+    _git(repo_root, "add", ".")
+    _git(repo_root, "commit", "-m", "v1")
+
+    (repo_root / "skills/.curated/alpha/SKILL.md").write_text("v2\n", encoding="utf-8")
+    cache_path = repo_root / ".planning/cache/skill-audit-cache.json"
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    cache_path.write_text("{}", encoding="utf-8")
+
+    changed = discover_changed_files(repo_root, compare_range=None)
+    assert changed == ["skills/.curated/alpha/SKILL.md"]

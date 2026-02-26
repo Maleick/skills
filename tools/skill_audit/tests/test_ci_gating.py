@@ -71,6 +71,8 @@ def test_ci_default_fails_when_invalid_exists(tmp_path: Path) -> None:
     assert "Result: FAIL" in result.stdout
     assert "Policy profile active: no" in result.stdout
     assert "Policy source: default" in result.stdout
+    assert "Cache enabled: yes" in result.stdout
+    assert "Cache mode: read-write" in result.stdout
 
 
 def test_ci_default_passes_when_only_warning_exists(tmp_path: Path) -> None:
@@ -283,9 +285,52 @@ def test_ci_override_scoped_mode_is_deterministic(tmp_path: Path) -> None:
         ),
     )
 
-    first = _run_cli(repo_root, ["--ci", "--tiers", "experimental", "--max-severity", "valid"])
-    second = _run_cli(repo_root, ["--ci", "--tiers", "experimental", "--max-severity", "valid"])
+    first = _run_cli(
+        repo_root,
+        ["--ci", "--tiers", "experimental", "--max-severity", "valid", "--no-cache"],
+    )
+    second = _run_cli(
+        repo_root,
+        ["--ci", "--tiers", "experimental", "--max-severity", "valid", "--no-cache"],
+    )
 
     assert first.returncode == 1
     assert second.returncode == 1
     assert first.stdout == second.stdout
+
+
+def test_ci_cache_and_no_cache_paths_match_gate_result(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _write_skill(
+        repo_root,
+        tier="curated",
+        name="curated-invalid",
+        skill_name="curated-invalid",
+        openai_name="different-name",
+    )
+
+    cached = _run_cli(repo_root, ["--ci"])
+    uncached = _run_cli(repo_root, ["--ci", "--no-cache"])
+
+    assert cached.returncode == 1
+    assert uncached.returncode == 1
+    assert "Result: FAIL" in cached.stdout
+    assert "Result: FAIL" in uncached.stdout
+    assert "invalid=1" in cached.stdout
+    assert "invalid=1" in uncached.stdout
+
+
+def test_ci_no_cache_mode_reports_disabled_cache(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _write_skill(
+        repo_root,
+        tier="experimental",
+        name="experimental-warning",
+        skill_name="experimental-warning",
+        openai_name="different-name",
+    )
+
+    result = _run_cli(repo_root, ["--ci", "--no-cache"])
+    assert result.returncode == 0
+    assert "Cache enabled: no" in result.stdout
+    assert "Cache mode: disabled" in result.stdout

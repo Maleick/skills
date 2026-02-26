@@ -120,6 +120,14 @@ def _default_scan_metadata(skill_count: int) -> dict[str, Any]:
         "total_skill_count": skill_count,
         "scanned_skills": [],
         "policy_profile": default_policy_profile_metadata(),
+        "cache": {
+            "enabled": False,
+            "mode": "disabled",
+            "hits": 0,
+            "misses": 0,
+            "invalidations": 0,
+            "errors": 0,
+        },
     }
 
 

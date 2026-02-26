@@ -59,6 +59,14 @@ def test_build_skill_index_core_contract_and_status(tmp_path: Path) -> None:
         "mode": "base-default",
         "override_counts": {"tier": 0, "rule": 0, "rule_tier": 0, "total": 0},
     }
+    assert payload["scan"]["cache"] == {
+        "enabled": False,
+        "mode": "disabled",
+        "hits": 0,
+        "misses": 0,
+        "invalidations": 0,
+        "errors": 0,
+    }
     assert payload["summary"]["global"]["finding_count"] == 3
     assert payload["summary"]["global"]["total_skill_count"] == 2
     assert payload["summary"]["severity_totals"] == {"valid": 1, "warning": 1, "invalid": 1}
@@ -127,6 +135,14 @@ def test_build_skill_index_uses_provided_scan_metadata(tmp_path: Path) -> None:
             "mode": "severity-overrides",
             "override_counts": {"tier": 1, "rule": 1, "rule_tier": 2, "total": 4},
         },
+        "cache": {
+            "enabled": True,
+            "mode": "read-write",
+            "hits": 2,
+            "misses": 1,
+            "invalidations": 0,
+            "errors": 0,
+        },
     }
 
     payload = build_skill_index([skill_a], findings, repo_root, scan_metadata=scan_metadata)
@@ -146,3 +162,11 @@ def test_build_skill_index_adds_default_policy_profile_when_missing(tmp_path: Pa
     assert payload["scan"]["mode"] == "changed-files"
     assert payload["scan"]["policy_profile"]["source"] == "default"
     assert payload["scan"]["policy_profile"]["active"] is False
+    assert payload["scan"]["cache"] == {
+        "enabled": False,
+        "mode": "disabled",
+        "hits": 0,
+        "misses": 0,
+        "invalidations": 0,
+        "errors": 0,
+    }

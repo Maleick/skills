@@ -76,6 +76,14 @@ def test_render_report_is_deterministic_and_includes_totals() -> None:
                 "mode": "severity-overrides",
                 "override_counts": {"tier": 1, "rule": 0, "rule_tier": 1, "total": 2},
             },
+            "cache": {
+                "enabled": True,
+                "mode": "read-write",
+                "hits": 1,
+                "misses": 1,
+                "invalidations": 0,
+                "errors": 0,
+            },
         },
     )
     assert "Scan mode: changed-files" in report
@@ -84,6 +92,9 @@ def test_render_report_is_deterministic_and_includes_totals() -> None:
     assert "Policy source: .skill-audit-overrides.yaml" in report
     assert "Policy mode: severity-overrides" in report
     assert "Policy overrides: tier=1, rule=0, rule+tier=1, total=2" in report
+    assert "Cache enabled: yes" in report
+    assert "Cache mode: read-write" in report
+    assert "Cache stats: hits=1, misses=1, invalidations=0, errors=0" in report
     assert report.index("skills/.curated/alpha/SKILL.md") < report.index(
         "skills/.curated/zeta/SKILL.md"
     )

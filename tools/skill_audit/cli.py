@@ -8,6 +8,11 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
+from .cache import (
+    SkillAuditCache,
+    build_policy_profile_signature,
+    build_rules_signature,
+)
 from .findings import Finding
 from .indexing import build_skill_index
 from .markdown_report import render_markdown_report
@@ -30,6 +35,8 @@ from .scanner import (
     discover_skill_dirs,
     filter_impacted_skill_dirs,
     impacted_skill_keys,
+    skill_content_fingerprint,
+    skill_key_for_dir,
 )
 
 SEVERITY_RANK: dict[str, int] = {"valid": 0, "warning": 1, "invalid": 2}
@@ -92,6 +99,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--force-overwrite",
         action="store_true",
         help="Allow overwriting existing output files.",
+    )
+    parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Disable persistent cache usage and recompute every skill.",
     )
     parser.add_argument(
         "--ci",
@@ -208,6 +220,7 @@ def _build_scan_metadata(
     repo_root: Path,
     total_skill_count: int,
     policy_profile: dict[str, object],
+    cache: dict[str, object],
 ) -> dict[str, object]:
     root = repo_root.resolve()
     scanned_skills: list[str] = []
@@ -227,6 +240,7 @@ def _build_scan_metadata(
         "total_skill_count": total_skill_count,
         "scanned_skills": scanned_skills,
         "policy_profile": policy_profile,
+        "cache": cache,
     }
 
 
@@ -247,6 +261,12 @@ def _render_ci_report(
     policy_source = "default"
     policy_mode = "base-default"
     policy_counts = {"tier": 0, "rule": 0, "rule_tier": 0, "total": 0}
+    cache_enabled = False
+    cache_mode = "disabled"
+    cache_hits = 0
+    cache_misses = 0
+    cache_invalidations = 0
+    cache_errors = 0
     if isinstance(policy_profile, dict):
         policy_active = bool(policy_profile.get("active", False))
         policy_source = str(policy_profile.get("source", "default"))
@@ -259,6 +279,14 @@ def _render_ci_report(
                 "rule_tier": int(raw_counts.get("rule_tier", 0)),
                 "total": int(raw_counts.get("total", 0)),
             }
+    raw_cache = scan_metadata.get("cache")
+    if isinstance(raw_cache, dict):
+        cache_enabled = bool(raw_cache.get("enabled", False))
+        cache_mode = str(raw_cache.get("mode", "disabled"))
+        cache_hits = int(raw_cache.get("hits", 0))
+        cache_misses = int(raw_cache.get("misses", 0))
+        cache_invalidations = int(raw_cache.get("invalidations", 0))
+        cache_errors = int(raw_cache.get("errors", 0))
     lines = [
         "Skill Audit CI Gate",
         f"Result: {result_label}",
@@ -285,6 +313,15 @@ def _render_ci_report(
             f"rule={policy_counts['rule']}, "
             f"rule+tier={policy_counts['rule_tier']}, "
             f"total={policy_counts['total']}"
+        ),
+        f"Cache enabled: {'yes' if cache_enabled else 'no'}",
+        f"Cache mode: {cache_mode}",
+        (
+            "Cache stats: "
+            f"hits={cache_hits}, "
+            f"misses={cache_misses}, "
+            f"invalidations={cache_invalidations}, "
+            f"errors={cache_errors}"
         ),
         (
             "In-scope findings: "
@@ -331,6 +368,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         override_profile = load_override_profile(repo_root)
         policy_profile_metadata = build_policy_profile_metadata(override_profile)
+        cache = SkillAuditCache(repo_root=repo_root, enabled=not args.no_cache)
+        policy_signature = build_policy_profile_signature(override_profile)
+        rules_signature = build_rules_signature()
         all_skill_dirs = discover_skill_dirs(repo_root)
         changed_files: list[str] = []
         if args.changed_files:
@@ -356,17 +396,46 @@ def main(argv: Sequence[str] | None = None) -> int:
             repo_root=repo_root,
             total_skill_count=len(all_skill_dirs),
             policy_profile=policy_profile_metadata,
+            cache=cache.metadata(),
         )
-        findings = []
+        findings: list[Finding] = []
         for skill_dir in skill_dirs:
-            findings.extend(validate_skill_md(skill_dir, repo_root))
-            findings.extend(validate_metadata_parity(skill_dir, repo_root))
-            findings.extend(validate_local_references(skill_dir, repo_root))
+            skill_key = skill_key_for_dir(skill_dir, repo_root)
+            skill_fingerprint = skill_content_fingerprint(skill_dir, repo_root)
+            cached = cache.lookup(
+                skill_key=skill_key,
+                fingerprint=skill_fingerprint,
+                policy_signature=policy_signature,
+                rules_signature=rules_signature,
+            )
+            if cached is not None:
+                findings.extend(cached)
+                continue
+
+            skill_findings = []
+            skill_findings.extend(validate_skill_md(skill_dir, repo_root))
+            skill_findings.extend(validate_metadata_parity(skill_dir, repo_root))
+            skill_findings.extend(validate_local_references(skill_dir, repo_root))
+            translated = sort_findings(
+                apply_tier_policy(skill_findings, override_profile=override_profile)
+            )
+            cache.store(
+                skill_key=skill_key,
+                fingerprint=skill_fingerprint,
+                policy_signature=policy_signature,
+                rules_signature=rules_signature,
+                findings=translated,
+            )
+            findings.extend(translated)
+        cache.flush()
+        scan_metadata["cache"] = cache.metadata()
+        for warning in cache.warnings:
+            print(f"runtime-warning: {warning}", file=sys.stderr)
     except (OSError, RuntimeError, OverrideConfigError) as exc:
         print(f"runtime-error: {exc}", file=sys.stderr)
         return 2
 
-    ordered = sort_findings(apply_tier_policy(findings, override_profile=override_profile))
+    ordered = sort_findings(findings)
     index_payload = build_skill_index(
         skill_dirs=skill_dirs,
         findings=ordered,
