@@ -1,0 +1,20 @@
+{
+  "id": "TASK_EXPIRED_001",
+  "title": "Expired lease task",
+  "state": "in_progress",
+  "priority": "medium",
+  "owner_role": "Builder",
+  "owner_id": "builder-02",
+  "claimed_until": "2020-01-01T00:00:00Z",
+  "artifacts": [],
+  "verification": [
+    {
+      "command": "echo stale",
+      "status": "not_run"
+    }
+  ],
+  "blockers": [],
+  "next_action": "Request orchestrator re-claim",
+  "created_at": "2026-02-19T00:00:00Z",
+  "updated_at": "2026-02-19T00:01:00Z"
+}

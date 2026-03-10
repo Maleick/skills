@@ -1,0 +1,3 @@
+display_name: Agent Team Protocol
+short_description: Canonical multi-agent protocol contracts and validators.
+default_prompt: Apply protocol role, lifecycle, and handoff validation.

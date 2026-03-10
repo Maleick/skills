@@ -1,0 +1,8 @@
+{
+  "from_state": "review",
+  "to_state": "done",
+  "actor_role": "Reviewer",
+  "actor_id": "reviewer-01",
+  "author_id": "reviewer-01",
+  "claimed_until": "2099-01-01T00:00:00Z"
+}

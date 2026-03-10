@@ -1,0 +1,10 @@
+{
+  "from_state": "assigned",
+  "to_state": "in_progress",
+  "actor_role": "Builder",
+  "actor_id": "builder-01",
+  "author_id": "orchestrator-01",
+  "claimed_until": "2099-01-01T00:00:00Z",
+  "adapter_mode": true,
+  "runtime_text": "openclaw cron add --session isolated --schedule \"*/10 * * * *\""
+}

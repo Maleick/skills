@@ -1,0 +1,65 @@
+{
+  "tasks": [
+    {
+      "task_id": "TASK_DASH_001",
+      "title": "Fix authorization check in webhook handler",
+      "state": "in_progress",
+      "priority": "high",
+      "owner_role": "Builder",
+      "owner_id": "builder-17",
+      "claimed_until": "2099-01-01T12:00:00Z",
+      "verification": [
+        {
+          "command": "pytest tests/security/test_webhook_auth.py -q",
+          "status": "pass",
+          "evidence": "1 passed"
+        }
+      ],
+      "blockers": [],
+      "next_action": "Submit for review",
+      "created_at": "2026-02-19T08:00:00Z",
+      "updated_at": "2026-02-19T08:05:00Z",
+      "handoff": {
+        "summary": "Applied webhook auth guard.",
+        "changed_paths": ["src/webhook.py"],
+        "verification_commands": ["pytest tests/security/test_webhook_auth.py -q"],
+        "risk_notes": ["Needs reviewer confirmation on edge cases"],
+        "next_owner": "Reviewer",
+        "next_action": "Review and approve if checks pass"
+      }
+    },
+    {
+      "id": "TASK_DASH_002",
+      "title": "Investigate stale lease handling",
+      "state": "in_progress",
+      "priority": "medium",
+      "owner_role": "Builder",
+      "owner_id": "builder-21",
+      "claimed_until": "2020-01-01T00:00:00Z",
+      "verification": [],
+      "blockers": [],
+      "next_action": "openclaw cron add --session isolated",
+      "created_at": "2026-02-19T08:00:00Z",
+      "updated_at": "2026-02-19T08:10:00Z"
+    },
+    {
+      "id": "TASK_DASH_003",
+      "title": "Finalize remediation report",
+      "state": "review",
+      "priority": "low",
+      "owner_role": "Reviewer",
+      "owner_id": "reviewer-01",
+      "claimed_until": null,
+      "verification": [
+        {
+          "command": "markdownlint report.md",
+          "status": "pass"
+        }
+      ],
+      "blockers": [],
+      "next_action": "Publish report",
+      "created_at": "2026-02-19T08:00:00Z",
+      "updated_at": "2026-02-19T08:20:00Z"
+    }
+  ]
+}

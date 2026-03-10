@@ -1,0 +1,96 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AgentTeamTaskCard",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "title",
+    "state",
+    "priority",
+    "owner_role",
+    "owner_id",
+    "claimed_until",
+    "artifacts",
+    "verification",
+    "blockers",
+    "next_action",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Z0-9_-]{3,64}$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "state": {
+      "type": "string",
+      "enum": ["inbox", "assigned", "in_progress", "review", "done", "failed"]
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["high", "medium", "low"]
+    },
+    "owner_role": {
+      "type": "string",
+      "enum": ["Orchestrator", "Builder", "Reviewer", "Ops"]
+    },
+    "owner_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "claimed_until": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "verification": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["command", "status"],
+        "properties": {
+          "command": { "type": "string", "minLength": 1 },
+          "status": { "type": "string", "enum": ["pass", "fail", "not_run"] },
+          "evidence": { "type": "string" }
+        }
+      }
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["description", "severity", "next_action"],
+        "properties": {
+          "description": { "type": "string", "minLength": 1 },
+          "severity": { "type": "string", "enum": ["high", "medium", "low"] },
+          "next_action": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "next_action": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

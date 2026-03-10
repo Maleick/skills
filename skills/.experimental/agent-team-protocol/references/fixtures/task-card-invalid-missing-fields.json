@@ -1,0 +1,13 @@
+{
+  "id": "TASK_MISSING_001",
+  "title": "Missing required fields",
+  "state": "in_progress",
+  "priority": "high",
+  "owner_role": "Builder",
+  "owner_id": "builder-01",
+  "claimed_until": null,
+  "artifacts": [],
+  "verification": [],
+  "blockers": [],
+  "next_action": "Fill all required fields"
+}
