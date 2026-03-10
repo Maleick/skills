@@ -1,0 +1,420 @@
+import subprocess
+import sys
+from pathlib import Path
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+
+
+def _write_skill(
+    repo_root: Path,
+    *,
+    tier: str,
+    name: str,
+    skill_name: str,
+    openai_name: str,
+) -> None:
+    skill_dir = repo_root / f"skills/.{tier}/{name}"
+    (skill_dir / "agents").mkdir(parents=True, exist_ok=True)
+    (skill_dir / "SKILL.md").write_text(
+        (
+            "---\n"
+            f"name: {skill_name}\n"
+            "description: Demo skill fixture.\n"
+            "---\n\n"
+            f"# {skill_name}\n"
+        ),
+        encoding="utf-8",
+    )
+    (skill_dir / "agents/openai.yaml").write_text(
+        f"name: {openai_name}\ndescription: Demo skill fixture.\n",
+        encoding="utf-8",
+    )
+
+
+def _run_cli(repo_root: Path, extra_args: list[str]) -> subprocess.CompletedProcess[str]:
+    cmd = [
+        sys.executable,
+        "-m",
+        "tools.skill_audit.cli",
+        "--repo-root",
+        str(repo_root),
+        *extra_args,
+    ]
+    return subprocess.run(
+        cmd,
+        cwd=PROJECT_ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+
+def _write_override(repo_root: Path, content: str) -> None:
+    (repo_root / ".skill-audit-overrides.yaml").write_text(content, encoding="utf-8")
+
+
+def test_ci_default_fails_when_invalid_exists(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _write_skill(
+        repo_root,
+        tier="curated",
+        name="curated-broken",
+        skill_name="curated-broken",
+        openai_name="different-name",
+    )
+
+    result = _run_cli(repo_root, ["--ci"])
+    assert result.returncode == 1
+    assert "Skill Audit CI Gate" in result.stdout
+    assert "Threshold: warning" in result.stdout
+    assert "Result: FAIL" in result.stdout
+    assert "Policy profile active: no" in result.stdout
+    assert "Policy source: default" in result.stdout
+    assert "Policy profile: default" in result.stdout
+    assert "Policy selection: base-default" in result.stdout
+    assert "Cache enabled: yes" in result.stdout
+    assert "Cache mode: read-write" in result.stdout
+
+
+def test_ci_default_passes_when_only_warning_exists(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _write_skill(
+        repo_root,
+        tier="experimental",
+        name="experimental-warning",
+        skill_name="experimental-warning",
+        openai_name="different-name",
+    )
+
+    result = _run_cli(repo_root, ["--ci"])
+    assert result.returncode == 0
+    assert "Result: PASS" in result.stdout
+    assert "invalid=0" in result.stdout
+
+
+def test_ci_strict_mode_fails_on_warning(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _write_skill(
+        repo_root,
+        tier="experimental",
+        name="experimental-warning",
+        skill_name="experimental-warning",
+        openai_name="different-name",
+    )
+
+    result = _run_cli(repo_root, ["--ci", "--max-severity", "valid"])
+    assert result.returncode == 1
+    assert "Threshold: valid" in result.stdout
+    assert "Result: FAIL" in result.stdout
+
+
+def test_ci_scoped_tolerant_mode_ignores_out_of_scope_invalid(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _write_skill(
+        repo_root,
+        tier="curated",
+        name="curated-invalid",
+        skill_name="curated-invalid",
+        openai_name="different-name",
+    )
+    _write_skill(
+        repo_root,
+        tier="experimental",
+        name="experimental-warning",
+        skill_name="experimental-warning",
+        openai_name="different-name",
+    )
+
+    result = _run_cli(
+        repo_root,
+        ["--ci", "--tiers", "experimental", "--max-severity", "warning"],
+    )
+    assert result.returncode == 0
+    assert "Scope tiers: experimental" in result.stdout
+    assert "Result: PASS" in result.stdout
+
+
+def test_warning_tolerant_requires_explicit_scope(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _write_skill(
+        repo_root,
+        tier="experimental",
+        name="experimental-warning",
+        skill_name="experimental-warning",
+        openai_name="different-name",
+    )
+
+    result = _run_cli(repo_root, ["--ci", "--max-severity", "warning"])
+    assert result.returncode == 2
+    assert "requires explicit --tiers scope" in result.stderr
+
+
+def test_tier_parser_rejects_unknown_and_empty_values(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _write_skill(
+        repo_root,
+        tier="curated",
+        name="valid-curated",
+        skill_name="valid-curated",
+        openai_name="valid-curated",
+    )
+
+    unknown = _run_cli(repo_root, ["--ci", "--tiers", "curated,unknown"])
+    assert unknown.returncode == 2
+    assert "Unknown tier value(s)" in unknown.stderr
+
+    empty = _run_cli(repo_root, ["--ci", "--tiers", ","])
+    assert empty.returncode == 2
+    assert "Invalid --tiers value" in empty.stderr
+
+
+def test_verbose_ci_requires_ci_mode(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _write_skill(
+        repo_root,
+        tier="curated",
+        name="curated-invalid",
+        skill_name="curated-invalid",
+        openai_name="different-name",
+    )
+
+    result = _run_cli(repo_root, ["--verbose-ci"])
+    assert result.returncode == 2
+    assert "--verbose-ci requires --ci" in result.stderr
+
+
+def test_ci_verbose_mode_prints_detailed_findings(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _write_skill(
+        repo_root,
+        tier="curated",
+        name="curated-invalid",
+        skill_name="curated-invalid",
+        openai_name="different-name",
+    )
+
+    compact = _run_cli(repo_root, ["--ci"])
+    assert compact.returncode == 1
+    assert "In-scope details:" not in compact.stdout
+    assert "Fix:" not in compact.stdout
+
+    verbose = _run_cli(repo_root, ["--ci", "--verbose-ci"])
+    assert verbose.returncode == 1
+    assert "In-scope details:" in verbose.stdout
+    assert "Fix:" in verbose.stdout
+    assert "[invalid]" in verbose.stdout
+
+
+def test_non_ci_behavior_remains_unchanged(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _write_skill(
+        repo_root,
+        tier="curated",
+        name="curated-invalid",
+        skill_name="curated-invalid",
+        openai_name="different-name",
+    )
+
+    result = _run_cli(repo_root, [])
+    assert result.returncode == 1
+    assert "Skill Audit Report" in result.stdout
+
+
+def test_ci_override_can_escalate_warning_to_invalid(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _write_skill(
+        repo_root,
+        tier="experimental",
+        name="experimental-warning",
+        skill_name="experimental-warning",
+        openai_name="different-name",
+    )
+    _write_override(
+        repo_root,
+        (
+            "version: 1\n"
+            "severity_overrides:\n"
+            "  rule_tier:\n"
+            "    experimental:\n"
+            "      META-110: invalid\n"
+        ),
+    )
+
+    result = _run_cli(repo_root, ["--ci"])
+    assert result.returncode == 1
+    assert "Result: FAIL" in result.stdout
+    assert "invalid=1" in result.stdout
+    assert "Policy profile active: yes" in result.stdout
+    assert "Policy source: .skill-audit-overrides.yaml" in result.stdout
+    assert "Policy mode: severity-overrides" in result.stdout
+    assert "Policy profile: default" in result.stdout
+    assert "Policy selection: legacy-default" in result.stdout
+    assert "Policy overrides: tier=0, rule=0, rule+tier=1, total=1" in result.stdout
+
+
+def test_ci_invalid_override_file_returns_config_error(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _write_skill(
+        repo_root,
+        tier="curated",
+        name="curated-valid",
+        skill_name="curated-valid",
+        openai_name="curated-valid",
+    )
+    _write_override(repo_root, "version: 1\nseverity_overrides: [\n")
+
+    result = _run_cli(repo_root, ["--ci"])
+    assert result.returncode == 2
+    assert "runtime-error:" in result.stderr
+
+
+def test_ci_override_scoped_mode_is_deterministic(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _write_skill(
+        repo_root,
+        tier="experimental",
+        name="experimental-warning",
+        skill_name="experimental-warning",
+        openai_name="different-name",
+    )
+    _write_override(
+        repo_root,
+        (
+            "version: 1\n"
+            "severity_overrides:\n"
+            "  rule_tier:\n"
+            "    experimental:\n"
+            "      META-110: invalid\n"
+        ),
+    )
+
+    first = _run_cli(
+        repo_root,
+        ["--ci", "--tiers", "experimental", "--max-severity", "valid", "--no-cache"],
+    )
+    second = _run_cli(
+        repo_root,
+        ["--ci", "--tiers", "experimental", "--max-severity", "valid", "--no-cache"],
+    )
+
+    assert first.returncode == 1
+    assert second.returncode == 1
+    assert first.stdout == second.stdout
+
+
+def test_ci_cache_and_no_cache_paths_match_gate_result(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _write_skill(
+        repo_root,
+        tier="curated",
+        name="curated-invalid",
+        skill_name="curated-invalid",
+        openai_name="different-name",
+    )
+
+    cached = _run_cli(repo_root, ["--ci"])
+    uncached = _run_cli(repo_root, ["--ci", "--no-cache"])
+
+    assert cached.returncode == 1
+    assert uncached.returncode == 1
+    assert "Result: FAIL" in cached.stdout
+    assert "Result: FAIL" in uncached.stdout
+    assert "invalid=1" in cached.stdout
+    assert "invalid=1" in uncached.stdout
+
+
+def test_ci_no_cache_mode_reports_disabled_cache(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _write_skill(
+        repo_root,
+        tier="experimental",
+        name="experimental-warning",
+        skill_name="experimental-warning",
+        openai_name="different-name",
+    )
+
+    result = _run_cli(repo_root, ["--ci", "--no-cache"])
+    assert result.returncode == 0
+    assert "Cache enabled: no" in result.stdout
+    assert "Cache mode: disabled" in result.stdout
+
+
+def test_ci_named_profile_selection_is_explicit_and_deterministic(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _write_skill(
+        repo_root,
+        tier="experimental",
+        name="experimental-warning",
+        skill_name="experimental-warning",
+        openai_name="different-name",
+    )
+    _write_override(
+        repo_root,
+        (
+            "version: 1\n"
+            "default_profile: strict\n"
+            "profiles:\n"
+            "  strict:\n"
+            "    rule_tier:\n"
+            "      experimental:\n"
+            "        META-110: invalid\n"
+            "  balanced:\n"
+            "    rule_tier:\n"
+            "      experimental:\n"
+            "        META-110: warning\n"
+        ),
+    )
+
+    strict_default = _run_cli(repo_root, ["--ci"])
+    balanced = _run_cli(repo_root, ["--ci", "--profile", "balanced"])
+    assert strict_default.returncode == 1
+    assert balanced.returncode == 0
+    assert "Policy profile: strict" in strict_default.stdout
+    assert "Policy selection: config-default" in strict_default.stdout
+    assert "Policy profile: balanced" in balanced.stdout
+    assert "Policy selection: explicit" in balanced.stdout
+
+
+def test_ci_unknown_profile_selector_returns_config_error(tmp_path: Path) -> None:
+    repo_root = tmp_path / "repo"
+    _write_skill(
+        repo_root,
+        tier="curated",
+        name="curated-valid",
+        skill_name="curated-valid",
+        openai_name="curated-valid",
+    )
+    _write_override(
+        repo_root,
+        (
+            "version: 1\n"
+            "profiles:\n"
+            "  strict: {}\n"
+        ),
+    )
+
+    result = _run_cli(repo_root, ["--ci", "--profile", "balanced"])
+    assert result.returncode == 2
+    assert "requested profile" in result.stderr
+
+
+def test_ci_autofix_output_is_opt_in_and_does_not_change_gate_result(
+    tmp_path: Path,
+) -> None:
+    repo_root = tmp_path / "repo"
+    _write_skill(
+        repo_root,
+        tier="curated",
+        name="curated-invalid",
+        skill_name="curated-invalid",
+        openai_name="different-name",
+    )
+
+    baseline = _run_cli(repo_root, ["--ci", "--no-cache"])
+    with_autofix = _run_cli(repo_root, ["--ci", "--autofix", "--no-cache"])
+
+    assert baseline.returncode == 1
+    assert with_autofix.returncode == 1
+    assert "Autofix Suggestions (dry-run)" not in baseline.stdout
+    assert "Autofix Suggestions (dry-run)" in with_autofix.stdout
