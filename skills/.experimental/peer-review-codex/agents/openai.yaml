@@ -1,0 +1,4 @@
+interface:
+  display_name: "Peer Review Codex"
+  short_description: "Run Claude + Gemini, then direct the review"
+  default_prompt: "Use $peer-review-codex to compare Claude and Gemini feedback on this topic, then direct the best next actions."
