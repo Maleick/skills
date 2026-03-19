@@ -4,3 +4,10 @@
 # Python bytecode files
 __pycache__/
 *.pyc
+
+# ── Tool/agent artifacts ──
+.gsd/
+.bg-shell/
+.serena/
+.codex/
+.claude/settings.local.json
